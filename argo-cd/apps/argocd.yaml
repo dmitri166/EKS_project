@@ -16,12 +16,6 @@ spec:
       parameters:
         - name: server.service.type
           value: LoadBalancer
-        - name: configs.cm.credentialTemplates.github.url
-          value: https://github.com/dmitri166/EKS_project
-        - name: configs.cm.credentialTemplates.github.username
-          value: dmitri166
-        - name: configs.cm.credentialTemplates.github.password
-          value: $github.pat
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

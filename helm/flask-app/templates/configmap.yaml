@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flask-app.fullname" . }}
+  labels:
+    {{- include "flask-app.labels" . | nindent 4 }}
+data:
+  FLASK_DEBUG: {{ .Values.config.flaskDebug | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  SQLITE_DB_PATH: "/app/data/tasks.db"
