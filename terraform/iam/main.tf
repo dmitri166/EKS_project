@@ -169,36 +169,5 @@ resource "aws_iam_role_policy_attachment" "eks_node_custom_policy_attachment" {
   role       = aws_iam_role.eks_node_role.name
 }
 
-# IAM Role for Argo CD
-resource "aws_iam_role" "argocd_role" {
-  name = "${var.project_name}-argocd-role-${var.environment}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Principal = {
-          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${data.aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer}"
-        }
-        Condition = {
-          StringEquals = {
-            "${data.aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer}:sub" = "system:serviceaccount:argocd:argocd-server"
-          }
-        }
-      }
-    ]
-  })
-
-  tags = merge(
-    {
-      Name        = "${var.project_name}-argocd-role"
-      Environment = var.environment
-    },
-    var.tags
-  )
-}
-
 # Data sources
 data "aws_caller_identity" "current" {}
