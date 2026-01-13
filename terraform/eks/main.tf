@@ -183,20 +183,11 @@ resource "aws_security_group_rule" "cluster_egress_nodes" {
   type                     = "egress"
 }
 
-# Kubernetes Provider (for Argo CD OIDC setup only)
-data "aws_eks_cluster" "eks_cluster" {
-  name = var.cluster_name
-}
-
-data "aws_eks_cluster_auth" "cluster_auth" {
-  name = var.cluster_name
-}
-
-provider "kubernetes" {
-  host                   = data.aws_eks_cluster.eks_cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.eks_cluster.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.cluster_auth.token
-}
+# Note: Kubernetes resources are managed by Argo CD, not Terraform
+# This follows GitOps best practices:
+# - Terraform: AWS infrastructure only
+# - Argo CD: Kubernetes applications only
+# - Helm: Application deployment
 
 # Create ECR repository
 resource "aws_ecr_repository" "flask_app" {
