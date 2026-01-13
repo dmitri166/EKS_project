@@ -7,10 +7,55 @@ on:
     branches: [ master ]
 
 env:
+  # Container and Registry
   REGISTRY: 025988852505.dkr.ecr.us-east-1.amazonaws.com
   IMAGE_NAME: flask-app
   DOCKERFILE_PATH: app/Dockerfile
   CLUSTER_NAME: flask-devops-cluster
+  
+  # Tool Versions
+  TERRAFORM_VERSION: "1.6.6"
+  KUBECTL_VERSION: "v1.29.0"
+  
+  # AWS Configuration
+  AWS_REGION: us-east-1
+  
+  # Kubernetes Namespaces
+  MONITORING_NAMESPACE: monitoring
+  ARGOCD_NAMESPACE: argocd
+  ROLLOUTS_NAMESPACE: argo-rollouts
+  APP_NAMESPACE: flask-app
+  
+  # Application Configuration
+  GRAFANA_ADMIN_USER: admin
+  
+  # Helm Configuration
+  HELM_REPO_NAME: prometheus-community
+  
+  # Resource Specifications
+  PROMETHEUS_STORAGE: 20Gi
+  PROMETHEUS_CPU: 500m
+  PROMETHEUS_MEMORY: 1Gi
+  ALERTMANAGER_STORAGE: 10Gi
+  
+  # Timeouts and Limits
+  HELM_WAIT_TIMEOUT: 300s
+  DEPLOYMENT_TIMEOUT: 300s
+  ARGOCD_SYNC_TIMEOUT: 600
+  
+  # URLs and Paths
+  HELM_INSTALL_URL: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+  ARGOCD_MANIFEST_URL: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  ARGO_ROLLOUTS_URL: https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+  ARGOCD_CLI_URL: https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+  ARGOCD_ROOT_APP_PATH: argo-cd/root-app.yaml
+  
+  # Service Configuration
+  GRAFANA_SERVICE_TYPE: ClusterIP
+  ARGOCD_SERVICE_PORT: 8080
+  
+  # Notification Configuration
+  SLACK_CHANNEL: '#deployments'
   
 
 jobs:
@@ -28,12 +73,12 @@ jobs:
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: 1.6.6
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
 
     - name: Install kubectl
       uses: azure/setup-kubectl@v4
       with:
-        version: 'v1.29.0'
+        version: ${{ env.KUBECTL_VERSION }}
 
     - name: Install jq and Helm
       run: |
@@ -41,7 +86,7 @@ jobs:
         sudo apt-get install -y jq
         
         # Install Helm
-        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        curl ${{ env.HELM_INSTALL_URL }} | bash
         helm version
 
     - name: Configure AWS credentials
@@ -49,72 +94,60 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Deploy Infrastructure
       run: |
         cd terraform
-        terraform init -input=false
         
-        # Check for state lock and attempt to unlock
-        echo "Checking for state lock..."
-        if terraform plan -input=false 2>&1 | grep -q "Error acquiring the state lock"; then
-          echo "State lock detected, attempting to force unlock..."
-          # Extract lock ID from the error message or try common approaches
-          LOCK_ID="8554d007-c9ed-5b92-b788-bd2a074a9eb2"
-          echo "Attempting to unlock with ID: $LOCK_ID"
-          terraform force-unlock -force "$LOCK_ID" || echo "Force unlock failed, continuing anyway..."
-        fi
+        # Initialize Terraform with proper backend configuration
+        terraform init -input=false -reconfigure
         
-        # Check for existing EKS node group and import if needed
-        echo "Checking for existing EKS node group..."
-        NODE_GROUP_EXISTS=$(aws eks describe-node-group --cluster-name flask-devops-cluster --nodegroup-name flask-devops-cluster-node-group --region us-east-1 2>/dev/null || echo "not_found")
-        if [ "$NODE_GROUP_EXISTS" != "not_found" ]; then
-          echo "Existing node group found, importing into Terraform state..."
-          terraform import module.eks.aws_eks_node_group.main flask-devops-cluster/flask-devops-cluster-node-group || echo "Import failed, will try to continue..."
-        fi
+        # Plan and save to file for better debugging
+        terraform plan -input=false -out=tfplan
         
-        terraform plan -input=false
-        terraform apply -input=false -auto-approve
+        # Apply the saved plan
+        terraform apply -input=false tfplan
 
     - name: Configure kubectl
       run: |
         CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
-        aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name $CLUSTER_NAME
 
     - name: Deploy Secure Monitoring Stack
       run: |
         echo "🔐 Deploying secure monitoring with secrets..."
         
         # Create monitoring namespace
-        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace ${{ env.MONITORING_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
         
         # Create Grafana admin secret from GitHub Secrets
         kubectl create secret generic grafana-admin-secret \
-          --from-literal=admin-user="admin" \
+          --from-literal=admin-user="${{ env.GRAFANA_ADMIN_USER }}" \
           --from-literal=admin-password="${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
-          --namespace=monitoring \
+          --namespace=${{ env.MONITORING_NAMESPACE }} \
           --dry-run=client -o yaml | kubectl apply -f -
         
         # Add Helm repository
-        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add ${{ env.HELM_REPO_NAME }} https://prometheus-community.github.io/helm-charts
         helm repo update
         
         # Deploy monitoring with existing secrets
-        helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \\
-          --namespace monitoring \\
-          --create-namespace \\
-          --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=20Gi \\
-          --set prometheus.prometheusSpec.resources.requests.cpu=500m \\
-          --set prometheus.prometheusSpec.resources.requests.memory=1Gi \\
-          --set grafana.admin.existingSecret=grafana-admin-secret \\
-          --set grafana.admin.userKey=admin-user \\
-          --set grafana.admin.passwordKey=admin-password \\
-          --set grafana.service.type=ClusterIP \\
-          --set alertmanager.enabled=true \\
-          --set alertmanager.persistence.enabled=true \\
-          --set alertmanager.persistence.size=10Gi \\
-          --wait
+        helm upgrade --install monitoring ${{ env.HELM_REPO_NAME }}/kube-prometheus-stack \
+          --namespace ${{ env.MONITORING_NAMESPACE }} \
+          --create-namespace \
+          --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=${{ env.PROMETHEUS_STORAGE }} \
+          --set prometheus.prometheusSpec.resources.requests.cpu=${{ env.PROMETHEUS_CPU }} \
+          --set prometheus.prometheusSpec.resources.requests.memory=${{ env.PROMETHEUS_MEMORY }} \
+          --set grafana.admin.existingSecret=grafana-admin-secret \
+          --set grafana.admin.userKey=admin-user \
+          --set grafana.admin.passwordKey=admin-password \
+          --set grafana.service.type=${{ env.GRAFANA_SERVICE_TYPE }} \
+          --set alertmanager.enabled=true \
+          --set alertmanager.persistence.enabled=true \
+          --set alertmanager.persistence.size=${{ env.ALERTMANAGER_STORAGE }} \
+          --wait \
+          --timeout ${{ env.HELM_WAIT_TIMEOUT }}
         
         echo "✅ Secure monitoring deployed!"
         echo "🔑 Grafana credentials: admin / [REDACTED]"
@@ -123,12 +156,12 @@ jobs:
     - name: Bootstrap Argo CD (if not exists)
       run: |
         # Check if Argo CD is already installed
-        if ! kubectl get namespace argocd &> /dev/null; then
-          kubectl create namespace argocd
-          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        if ! kubectl get namespace ${{ env.ARGOCD_NAMESPACE }} &> /dev/null; then
+          kubectl create namespace ${{ env.ARGOCD_NAMESPACE }}
+          kubectl apply -n ${{ env.ARGOCD_NAMESPACE }} -f ${{ env.ARGOCD_MANIFEST_URL }}
           
           # Wait for Argo CD to be ready
-          kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
+          kubectl wait --for=condition=available deployment/argocd-server -n ${{ env.ARGOCD_NAMESPACE }} --timeout ${{ env.HELM_WAIT_TIMEOUT }}
         fi
 
     - name: Deploy Argo Rollouts
@@ -136,13 +169,13 @@ jobs:
         echo "🚀 Installing Argo Rollouts for canary deployments..."
         
         # Create argo-rollouts namespace
-        kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace ${{ env.ROLLOUTS_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
         
         # Install Argo Rollouts
-        kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+        kubectl apply -n ${{ env.ROLLOUTS_NAMESPACE }} -f ${{ env.ARGO_ROLLOUTS_URL }}
         
         # Wait for Rollouts controller to be ready
-        kubectl wait --for=condition=available deployment/argo-rollouts -n argo-rollouts --timeout=300s
+        kubectl wait --for=condition=available deployment/argo-rollouts -n ${{ env.ROLLOUTS_NAMESPACE }} --timeout ${{ env.HELM_WAIT_TIMEOUT }}
         
         echo "✅ Argo Rollouts installed!"
         echo "🔧 Canary deployments now available"
@@ -150,30 +183,94 @@ jobs:
     - name: Deploy Root App
       run: |
         # Apply the root application
-        kubectl apply -f argo-cd/root-app.yaml
+        kubectl apply -f ${{ env.ARGOCD_ROOT_APP_PATH }}
         
         # Install Argo CD CLI
-        curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        curl -sSL -o argocd ${{ env.ARGOCD_CLI_URL }}
         chmod +x argocd
         sudo mv argocd /usr/local/bin/argocd
         
         # Get Argo CD password and login
-        ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-        ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}:8080')
+        ARGOCD_PASSWORD=$(kubectl -n ${{ env.ARGOCD_NAMESPACE }} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+        ARGOCD_SERVER=$(kubectl get svc argocd-server -n ${{ env.ARGOCD_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}:${{ env.ARGOCD_SERVICE_PORT }}')
         
-        argocd login $ARGOCD_SERVER --username admin --password $ARGOCD_PASSWORD --insecure
+        argocd login $ARGOCD_SERVER --username ${{ env.GRAFANA_ADMIN_USER }} --password $ARGOCD_PASSWORD --insecure
         
         # Sync root app
         argocd app sync root-app
 
     - name: Create GitHub token secret
       run: |
-        if ! kubectl get secret github-token -n argocd &> /dev/null; then
+        if ! kubectl get secret github-token -n ${{ env.ARGOCD_NAMESPACE }} &> /dev/null; then
           kubectl create secret generic github-token \
             --from-literal=type=github \
             --from-literal=token=${{ secrets.GITHUB_TOKEN }} \
-            --namespace=argocd
+            --namespace=${{ env.ARGOCD_NAMESPACE }}
         fi
+
+  # Infrastructure Recovery (only runs on failure)
+  recover-infrastructure:
+    name: Recover Infrastructure State
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: failure() && needs.deploy-infrastructure.result == 'failure'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Diagnose and Recover State
+      run: |
+        cd terraform
+        
+        echo "🔧 Diagnosing Terraform state issues..."
+        
+        # Initialize Terraform
+        terraform init -input=false
+        
+        # Check for state locks
+        echo "Checking for state locks..."
+        LOCK_INFO=$(terraform plan -input=false 2>&1 | grep -A 10 "Error acquiring the state lock" || echo "No lock found")
+        echo "Lock info: $LOCK_INFO"
+        
+        # Extract lock ID if present
+        LOCK_ID=$(echo "$LOCK_INFO" | grep -o 'ID: [a-f0-9-]*' | cut -d' ' -f2 | head -1 || echo "")
+        
+        if [ -n "$LOCK_ID" ]; then
+          echo "🔓 Found state lock, attempting to unlock: $LOCK_ID"
+          terraform force-unlock -force "$LOCK_ID" || echo "Failed to unlock automatically"
+        fi
+        
+        # Check for existing resources that might need importing
+        echo "🔍 Checking for existing EKS resources..."
+        CLUSTER_NAME="flask-devops-cluster"
+        NODE_GROUP_NAME="${CLUSTER_NAME}-node-group"
+        
+        # Check if node group exists in AWS but not in Terraform state
+        NODE_GROUP_EXISTS=$(aws eks describe-node-group --cluster-name "$CLUSTER_NAME" --nodegroup-name "$NODE_GROUP_NAME" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "not_found")
+        
+        if [ "$NODE_GROUP_EXISTS" != "not_found" ]; then
+          echo "📦 Found existing node group, attempting to import..."
+          terraform import module.eks.aws_eks_node_group.main "$CLUSTER_NAME/$NODE_GROUP_NAME" || echo "Import failed"
+        fi
+        
+        echo "🏁 Recovery completed. Please retry the deployment manually."
+        echo "📋 If issues persist, check Terraform state manually and run:"
+        echo "   terraform state list"
+        echo "   terraform plan"
 
   
   # Verify Deployment (GitOps - Argo CD handles actual deployment)
@@ -191,53 +288,53 @@ jobs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4
       with:
-        version: 'v1.29.0'
+        version: ${{ env.KUBECTL_VERSION }}
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Update kubeconfig
       run: |
-        aws eks update-kubeconfig --region us-east-1 --name ${{ env.CLUSTER_NAME }}
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
 
     - name: Install Argo CD CLI
       run: |
-        curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        curl -sSL -o argocd ${{ env.ARGOCD_CLI_URL }}
         chmod +x argocd
         sudo mv argocd /usr/local/bin/argocd
 
     - name: Check Argo CD sync status
       run: |
         # Get Argo CD password and login
-        ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-        ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}:8080')
+        ARGOCD_PASSWORD=$(kubectl -n ${{ env.ARGOCD_NAMESPACE }} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+        ARGOCD_SERVER=$(kubectl get svc argocd-server -n ${{ env.ARGOCD_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}:${{ env.ARGOCD_SERVICE_PORT }}')
         
-        argocd login $ARGOCD_SERVER --username admin --password $ARGOCD_PASSWORD --insecure
+        argocd login $ARGOCD_SERVER --username ${{ env.GRAFANA_ADMIN_USER }} --password $ARGOCD_PASSWORD --insecure
         
         # Wait for apps to sync
         argocd app sync root-app
-        argocd app wait root-app --timeout 600
+        argocd app wait root-app --timeout ${{ env.ARGOCD_SYNC_TIMEOUT }}
 
     - name: Verify deployment
       run: |
         # Check Flask app deployment
-        kubectl rollout status deployment/flask-app -n flask-app --timeout=300s
-        kubectl get pods -n flask-app
+        kubectl rollout status deployment/flask-app -n ${{ env.APP_NAMESPACE }} --timeout ${{ env.DEPLOYMENT_TIMEOUT }}
+        kubectl get pods -n ${{ env.APP_NAMESPACE }}
         
         # Check monitoring deployment
-        kubectl rollout status deployment/prometheus-kube-prometheus-stack-grafana -n monitoring --timeout=300s || true
+        kubectl rollout status deployment/prometheus-kube-prometheus-stack-grafana -n ${{ env.MONITORING_NAMESPACE }} --timeout ${{ env.DEPLOYMENT_TIMEOUT }} || true
 
     - name: Run smoke tests
       run: |
         # Wait for service to be ready
-        kubectl wait --for=condition=ready svc/flask-app -n flask-app --timeout=300s || true
+        kubectl wait --for=condition=ready svc/flask-app -n ${{ env.APP_NAMESPACE }} --timeout ${{ env.DEPLOYMENT_TIMEOUT }} || true
         
         # Get service URL
-        SERVICE_URL=$(kubectl get svc flask-app -n flask-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+        SERVICE_URL=$(kubectl get svc flask-app -n ${{ env.APP_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
         
         if [ -n "$SERVICE_URL" ]; then
           # Run health check
@@ -252,7 +349,7 @@ jobs:
       uses: 8398a7/action-slack@v3
       with:
         status: success
-        channel: '#deployments'
+        channel: ${{ env.SLACK_CHANNEL }}
         text: '🚀 Flask app deployed to production via GitOps successfully!'
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
