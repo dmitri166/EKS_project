@@ -47,47 +47,16 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
 
-    - name: Deploy VPC
+    - name: Deploy Infrastructure
       run: |
-        cd terraform/vpc
+        cd terraform
         terraform init -input=false
         terraform plan -input=false
         terraform apply -input=false -auto-approve
-
-    - name: Deploy IAM
-      run: |
-        cd terraform/iam
-        terraform init -input=false
-        terraform plan -input=false
-        terraform apply -input=false -auto-approve
-
-    - name: Deploy EKS
-      run: |
-        cd terraform/eks
-        terraform init -input=false
-        
-        # Get outputs from previous modules
-        VPC_ID=$(cd ../vpc && terraform output -raw vpc_id)
-        PRIVATE_SUBNET_IDS=$(cd ../vpc && terraform output -json private_subnet_ids | jq -r '.[]' | tr '\n' ',' | sed 's/,$//')
-        PUBLIC_SUBNET_IDS=$(cd ../vpc && terraform output -json public_subnet_ids | jq -r '.[]' | tr '\n' ',' | sed 's/,$//')
-        EKS_CLUSTER_ROLE_ARN=$(cd ../iam && terraform output -raw eks_cluster_role_arn)
-        EKS_NODE_ROLE_ARN=$(cd ../iam && terraform output -raw eks_node_role_arn)
-        
-        # Create terraform.tfvars
-        cat > terraform.tfvars << EOF
-        vpc_id = "$VPC_ID"
-        private_subnet_ids = ["$(echo $PRIVATE_SUBNET_IDS | sed 's/,/", "/g')"]
-        public_subnet_ids = ["$(echo $PUBLIC_SUBNET_IDS | sed 's/,/", "/g')"]
-        eks_cluster_role_arn = "$EKS_CLUSTER_ROLE_ARN"
-        eks_node_role_arn = "$EKS_NODE_ROLE_ARN"
-        EOF
-        
-        terraform plan -input=false -var-file=terraform.tfvars
-        terraform apply -input=false -var-file=terraform.tfvars -auto-approve
 
     - name: Configure kubectl
       run: |
-        CLUSTER_NAME=$(cd terraform/eks && terraform output -raw cluster_name)
+        CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
         aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
 
     - name: Bootstrap Argo CD (if not exists)

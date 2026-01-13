@@ -1,33 +1,3 @@
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.20"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.10"
-    }
-  }
-
-  backend "s3" {
-    bucket = "eks-project-terraform-state-025988852505"
-    key    = "eks/terraform.tfstate"
-    region = "us-east-1"
-    dynamodb_table = "terraform-locks"
-    encrypt = true
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-
 # EKS Cluster
 resource "aws_eks_cluster" "main" {
   name     = var.cluster_name
@@ -71,13 +41,6 @@ resource "aws_eks_node_group" "main" {
     ec2_ssh_key               = var.ssh_key_name
     source_security_group_ids = [aws_security_group.node_sg.id]
   }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_worker_node_policy,
-    aws_iam_role_policy_attachment.eks_cni_policy,
-    aws_iam_role_policy_attachment.eks_container_registry_policy,
-    aws_iam_role_policy_attachment.eks_node_custom_policy_attachment,
-  ]
 
   tags = merge(
     {
