@@ -202,6 +202,3 @@ resource "aws_iam_role" "argocd_role" {
 
 # Data sources
 data "aws_caller_identity" "current" {}
-data "aws_eks_cluster" "eks_cluster" {
-  name = var.eks_cluster_name
-}
