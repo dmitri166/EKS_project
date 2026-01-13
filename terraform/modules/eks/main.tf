@@ -44,11 +44,6 @@ resource "aws_eks_node_group" "main" {
     max_unavailable = 1
   }
 
-  remote_access {
-    ec2_ssh_key               = var.ssh_key_name != "" ? var.ssh_key_name : null
-    source_security_group_ids = [aws_security_group.node_sg.id]
-  }
-
   tags = merge(
     {
       Name        = "${var.cluster_name}-node-group"
