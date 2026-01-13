@@ -10,6 +10,7 @@ env:
   REGISTRY: 025988852505.dkr.ecr.us-east-1.amazonaws.com
   IMAGE_NAME: flask-app
   DOCKERFILE_PATH: app/Dockerfile
+  
 
 jobs:
   # Infrastructure Deployment (only on main branch)
