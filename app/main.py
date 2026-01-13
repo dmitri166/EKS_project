@@ -6,10 +6,10 @@ from datetime import datetime
 
 from flask import Flask, jsonify, request
 from prometheus_client import (
-    CONTENT_TYPE_LATEST,
     Counter,
-    Histogram,
+    CONTENT_TYPE_LATEST,
     generate_latest,
+    Histogram,
 )
 
 # Configure logging
