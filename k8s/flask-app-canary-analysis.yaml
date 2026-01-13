@@ -1,0 +1,107 @@
+---
+# Flask App with Canary Analysis
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: flask-app
+  namespace: default
+spec:
+  replicas: 3
+  strategy:
+    canary:
+      # Automated analysis with Prometheus metrics
+      analysis:
+        templates:
+        - templateName: success-rate
+        - templateName: latency
+        args:
+        - name: service-name
+          value: flask-app-stable
+        startingStep: 2
+        interval: 5m
+        
+      # Canary steps with analysis
+      steps:
+      - setWeight: 20
+      - pause: {duration: 5m}
+      - setWeight: 50
+      - pause: {duration: 5m}
+      - setWeight: 100
+      
+      # Traffic routing
+      trafficRouting:
+        istio:
+          virtualService:
+            name: flask-app-vsvc
+            routes:
+            - primary
+            
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+    spec:
+      containers:
+      - name: flask-app
+        image: 025988852505.dkr.ecr.us-east-1.amazonaws.com/flask-app:{{ .Values.image.tag }}
+        ports:
+        - containerPort: 5000
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# Analysis Templates
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  namespace: default
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: success-rate
+    interval: 5m
+    count: 10
+    successCondition: result[0] >= 0.95
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: http://monitoring-prometheus.monitoring.svc.cluster.local:9090
+        query: |
+          sum(rate(http_requests_total{service="{{args.service-name}}",code!~"5.."}[2m])) /
+          sum(rate(http_requests_total{service="{{args.service-name}}"}[2m]))
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: latency
+  namespace: default
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: latency
+    interval: 5m
+    count: 10
+    successCondition: result[0] <= 0.5
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: http://monitoring-prometheus.monitoring.svc.cluster.local:9090
+        query: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{service="{{args.service-name}}"}[2m])) by (le)
+          )

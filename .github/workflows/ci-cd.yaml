@@ -33,12 +33,16 @@ jobs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4
       with:
-        version: 'v1.28.0'
+        version: 'v1.29.0'
 
-    - name: Install jq
+    - name: Install jq and Helm
       run: |
         sudo apt-get update
         sudo apt-get install -y jq
+        
+        # Install Helm
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        helm version
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -59,6 +63,44 @@ jobs:
         CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
         aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
 
+    - name: Deploy Secure Monitoring Stack
+      run: |
+        echo "🔐 Deploying secure monitoring with secrets..."
+        
+        # Create monitoring namespace
+        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Create Grafana admin secret from GitHub Secrets
+        kubectl create secret generic grafana-admin-secret \
+          --from-literal=admin-user="admin" \
+          --from-literal=admin-password="${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
+          --namespace=monitoring \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Add Helm repository
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo update
+        
+        # Deploy monitoring with existing secrets
+        helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \\
+          --namespace monitoring \\
+          --create-namespace \\
+          --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=20Gi \\
+          --set prometheus.prometheusSpec.resources.requests.cpu=500m \\
+          --set prometheus.prometheusSpec.resources.requests.memory=1Gi \\
+          --set grafana.admin.existingSecret=grafana-admin-secret \\
+          --set grafana.admin.userKey=admin-user \\
+          --set grafana.admin.passwordKey=admin-password \\
+          --set grafana.service.type=ClusterIP \\
+          --set alertmanager.enabled=true \\
+          --set alertmanager.persistence.enabled=true \\
+          --set alertmanager.persistence.size=10Gi \\
+          --wait
+        
+        echo "✅ Secure monitoring deployed!"
+        echo "🔑 Grafana credentials: admin / [REDACTED]"
+        echo "🔐 All secrets managed securely via GitHub Secrets"
+
     - name: Bootstrap Argo CD (if not exists)
       run: |
         # Check if Argo CD is already installed
@@ -69,6 +111,22 @@ jobs:
           # Wait for Argo CD to be ready
           kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
         fi
+
+    - name: Deploy Argo Rollouts
+      run: |
+        echo "🚀 Installing Argo Rollouts for canary deployments..."
+        
+        # Create argo-rollouts namespace
+        kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Install Argo Rollouts
+        kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+        
+        # Wait for Rollouts controller to be ready
+        kubectl wait --for=condition=available deployment/argo-rollouts -n argo-rollouts --timeout=300s
+        
+        echo "✅ Argo Rollouts installed!"
+        echo "🔧 Canary deployments now available"
 
     - name: Deploy Root App
       run: |
@@ -262,7 +320,7 @@ jobs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4
       with:
-        version: 'v1.28.0'
+        version: 'v1.29.0'
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4

@@ -1,0 +1,134 @@
+---
+# Flask App with Canary Deployment Strategy
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: flask-app
+  namespace: default
+  labels:
+    app: flask-app
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    canary:
+      # Canary deployment strategy
+      steps:
+      # Step 1: Deploy 20% traffic to canary
+      - setWeight: 20
+      # Step 2: Pause for manual analysis
+      - pause: {duration: 5m}
+      # Step 3: Increase to 50% traffic
+      - setWeight: 50
+      # Step 4: Pause for analysis
+      - pause: {duration: 5m}
+      # Step 5: Full traffic
+      - setWeight: 100
+      
+      # Traffic routing with Istio/ALB
+      trafficRouting:
+        istio:
+          virtualService:
+            name: flask-app-vsvc
+            routes:
+            - primary
+        # Alternative: ALB Ingress
+        alb:
+          ingress: flask-app-ingress
+          servicePort: 80
+          
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+        version: v1
+    spec:
+      containers:
+      - name: flask-app
+        image: 025988852505.dkr.ecr.us-east-1.amazonaws.com/flask-app:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: flask-secrets
+              key: database-url
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# Services for Rollout
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-app-stable
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: flask-app
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-app-canary
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: flask-app
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+
+---
+# Argo CD Application for Flask App
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flask-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/your-username/flask-app-k8s'
+    targetRevision: HEAD
+    path: k8s
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

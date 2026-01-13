@@ -299,6 +299,44 @@ def not_found(error):
     return jsonify({"error": "Endpoint not found"}), 404
 
 
+@app.route('/health')
+def health():
+    """Health check endpoint for Kubernetes liveness probe"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'version': '1.0.0'
+    })
+
+
+@app.route('/ready')
+def ready():
+    """Readiness check endpoint for Kubernetes readiness probe"""
+    try:
+        # Test database connection
+        conn = sqlite3.connect(DB_PATH)
+        conn.close()
+        return jsonify({
+            'status': 'ready',
+            'database': 'connected',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        return jsonify({
+            'status': 'not ready',
+            'database': 'disconnected',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 503
+
+
+@app.route('/metrics')
+def metrics():
+    """Prometheus metrics endpoint"""
+    return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
+
+
 @app.errorhandler(405)
 def method_not_allowed(error):
     return jsonify({"error": "Method not allowed"}), 405

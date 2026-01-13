@@ -1,0 +1,68 @@
+---
+# Install Argo Rollouts
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-rollouts
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/argoproj/argo-helm'
+    targetRevision: HEAD
+    chart: argo-rollouts
+    helm:
+      releaseName: argo-rollouts
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: argo-rollouts
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+---
+# Argo Rollouts CRDs
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: rollouts.argoproj.io
+spec:
+  group: argoproj.io
+  names:
+    kind: Rollout
+    listKind: RolloutList
+    plural: rollouts
+    singular: rollout
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              replicas:
+                type: integer
+              strategy:
+                type: object
+                properties:
+                  canary:
+                    type: object
+                    properties:
+                      steps:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            setWeight:
+                              type: integer
+                            pause:
+                              type: object
+                      trafficRouting:
+                        type: object

@@ -97,7 +97,7 @@ variable "min_size" {
 variable "instance_type" {
   description = "EC2 instance type for worker nodes"
   type        = string
-  default     = "t3a.small"
+  default     = "t3.small"
 }
 
 variable "ssh_key_name" {
