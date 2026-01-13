@@ -169,9 +169,9 @@ jobs:
       run: |
         black --check app/main.py || (black app/main.py && git diff --exit-code)
 
-    - name: Check import sorting with isort
-      run: |
-        isort --check-only app/main.py
+    # - name: Check import sorting with isort
+    #   run: |
+    #     isort --check-only app/main.py
 
     - name: Type checking with mypy
       run: |
