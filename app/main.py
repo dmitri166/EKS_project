@@ -8,8 +8,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -21,21 +20,19 @@ DB_PATH = os.getenv("SQLITE_DB_PATH", "/app/data/tasks.db")
 
 # Prometheus metrics
 REQUEST_COUNT = Counter(
-    "flask_requests_total",
-    "Total requests",
-    ["method", "endpoint", "status"]
+    "flask_requests_total", "Total requests", ["method", "endpoint", "status"]
 )
 
 REQUEST_DURATION = Histogram(
     "flask_request_duration_seconds",
     "Request duration in seconds",
-    ["method", "endpoint"]
+    ["method", "endpoint"],
 )
 
 TASKS_TOTAL = Counter(
     "flask_tasks_total",
     "Total number of tasks",
-    ["action"]  # action can be: created, updated, deleted
+    ["action"],  # action can be: created, updated, deleted
 )
 
 # Database setup
@@ -63,16 +60,19 @@ def init_db():
         logger.error(f"Database initialization failed: {e}")
         raise
 
+
 def get_db_connection():
     """Get database connection"""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
+
 # Middleware for metrics
 @app.before_request
 def before_request():
     request.start_time = time.time()
+
 
 @app.after_request
 def after_request(response):
@@ -90,6 +90,7 @@ def after_request(response):
 
     return response
 
+
 # API Endpoints
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -100,22 +101,29 @@ def health_check():
         conn.execute("SELECT 1")
         conn.close()
 
-        return jsonify(
-            {
-                "status": "healthy",
-                "timestamp": datetime.utcnow().isoformat(),
-                "version": "1.0.0",
-            }
-        ), 200
+        return (
+            jsonify(
+                {
+                    "status": "healthy",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "version": "1.0.0",
+                }
+            ),
+            200,
+        )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return jsonify(
-            {
-                "status": "unhealthy",
-                "timestamp": datetime.utcnow().isoformat(),
-                "error": str(e),
-            }
-        ), 500
+        return (
+            jsonify(
+                {
+                    "status": "unhealthy",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "error": str(e),
+                }
+            ),
+            500,
+        )
+
 
 @app.route("/metrics", methods=["GET"])
 def metrics():
@@ -181,19 +189,23 @@ def create_task():
         TASKS_TOTAL.labels(action="created").inc()
         logger.info(f"Created task with ID: {task_id}")
 
-        return jsonify(
-            {
-                "id": task_id,
-                "title": title,
-                "description": description,
-                "done": False,
-                "message": "Task created successfully",
-            }
-        ), 201
+        return (
+            jsonify(
+                {
+                    "id": task_id,
+                    "title": title,
+                    "description": description,
+                    "done": False,
+                    "message": "Task created successfully",
+                }
+            ),
+            201,
+        )
 
     except Exception as e:
         logger.error(f"Error creating task: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route("/tasks/<int:task_id>", methods=["PUT"])
 def update_task(task_id):
@@ -227,9 +239,16 @@ def update_task(task_id):
         TASKS_TOTAL.labels(action="updated").inc()
         logger.info(f"Updated task {task_id} status to {data['done']}")
 
-        return jsonify(
-            {"id": task_id, "done": data["done"], "message": "Task updated successfully"}
-        ), 200
+        return (
+            jsonify(
+                {
+                    "id": task_id,
+                    "done": data["done"],
+                    "message": "Task updated successfully",
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error updating task {task_id}: {e}")
@@ -257,13 +276,12 @@ def delete_task(task_id):
         TASKS_TOTAL.labels(action="deleted").inc()
         logger.info(f"Deleted task {task_id}")
 
-        return jsonify(
-            {"id": task_id, "message": "Task deleted successfully"}
-        ), 200
+        return jsonify({"id": task_id, "message": "Task deleted successfully"}), 200
 
     except Exception as e:
         logger.error(f"Error deleting task {task_id}: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 # Error handlers
 @app.errorhandler(404)
