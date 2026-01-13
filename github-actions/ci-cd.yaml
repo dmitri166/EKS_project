@@ -264,9 +264,10 @@ jobs:
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-    - uses: github/codeql-action/upload-sarif@v3
+      uses: actions/upload-artifact@v3
       with:
-        sarif_file: 'trivy-results.sarif'
+        name: trivy-results
+        path: trivy-results.sarif
 
   # Verify Deployment (GitOps - Argo CD handles actual deployment)
   verify-deployment:
