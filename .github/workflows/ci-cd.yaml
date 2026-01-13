@@ -100,12 +100,13 @@ jobs:
       run: |
         cd terraform
         
-        # Use Terraform workspace for environment isolation
-        echo "� Setting up Terraform workspace..."
-        terraform workspace select production || terraform workspace new production
+        # Initialize Terraform first
+        echo "🔧 Initializing Terraform..."
+        terraform init -input=false
         
-        # Initialize Terraform with proper backend configuration
-        terraform init -input=false -upgrade
+        # Use Terraform workspace for environment isolation
+        echo "🔧 Setting up Terraform workspace..."
+        terraform workspace select production || terraform workspace new production
         
         # Simple, clean deployment
         echo "📋 Running Terraform plan..."
