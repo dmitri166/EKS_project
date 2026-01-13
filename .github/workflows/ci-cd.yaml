@@ -112,35 +112,19 @@ jobs:
         CLUSTER_NAME="flask-devops-cluster"
         NODE_GROUP_NAME="${CLUSTER_NAME}-node-group"
         
-        # Check if node group exists in AWS
-        echo "📡 Checking AWS for node group..."
-        NODE_GROUP_EXISTS=$(aws eks describe-node-group --cluster-name "$CLUSTER_NAME" --nodegroup-name "$NODE_GROUP_NAME" --region ${{ env.AWS_REGION }} 2>/dev/null && echo "exists" || echo "not_found")
-        echo "Node group in AWS: $NODE_GROUP_EXISTS"
+        # Try to import directly - if it fails, the node group doesn't exist or is already in state
+        echo "� Attempting to import node group (will fail if doesn't exist or already in state)..."
+        terraform import module.eks.aws_eks_node_group.main "$CLUSTER_NAME/$NODE_GROUP_NAME" 2>/dev/null
+        IMPORT_RESULT=$?
         
-        # Check if node group exists in Terraform state
-        echo "🗃️ Checking Terraform state for node group..."
-        NODE_GROUP_IN_STATE=$(terraform state list | grep "module.eks.aws_eks_node_group.main" && echo "in_state" || echo "not_in_state")
-        echo "Node group in Terraform state: $NODE_GROUP_IN_STATE"
-        
-        # Import if exists in AWS but not in state
-        if [ "$NODE_GROUP_EXISTS" == "exists" ] && [ "$NODE_GROUP_IN_STATE" == "not_in_state" ]; then
-          echo "📦 Importing existing node group into Terraform state..."
-          echo "Running: terraform import module.eks.aws_eks_node_group.main $CLUSTER_NAME/$NODE_GROUP_NAME"
-          terraform import module.eks.aws_eks_node_group.main "$CLUSTER_NAME/$NODE_GROUP_NAME"
-          IMPORT_RESULT=$?
-          echo "Import result: $IMPORT_RESULT"
-          
-          if [ $IMPORT_RESULT -eq 0 ]; then
-            echo "✅ Import successful"
-          else
-            echo "❌ Import failed, but continuing..."
-          fi
+        if [ $IMPORT_RESULT -eq 0 ]; then
+          echo "✅ Import successful - node group was imported into state"
         else
-          echo "ℹ️ No import needed - node group state is consistent"
+          echo "ℹ️ Import not needed - node group either doesn't exist or already in state"
         fi
         
         # Show state after potential import
-        echo "🔍 Terraform state after import check:"
+        echo "🔍 Terraform state after import attempt:"
         terraform state list || echo "No state found or error listing state"
         
         # Plan and save to file for better debugging
