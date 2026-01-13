@@ -156,65 +156,137 @@ jobs:
             --namespace=argocd
         fi
 
-  # Code Quality and Testing
-  test:
-    name: Test and Lint
+  # Deploy Infrastructure
+  deploy-infrastructure:
+    name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.11]
-
+    needs: test-and-lint
+    if: github.ref == 'refs/heads/master'
+    environment: production
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
       with:
-        python-version: ${{ matrix.python-version }}
+        terraform_version: 1.6.6
 
-    - name: Cache pip packages
-      uses: actions/cache@v3
+    - name: Install jq and Helm
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+        
+        # Install Helm
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        helm version
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
 
-    - name: Install dependencies
+    - name: Deploy Infrastructure
       run: |
-        python -m pip install --upgrade pip
-        pip install -r app/requirements.txt
-        pip install pytest pytest-cov flake8 black isort mypy bandit safety
+        cd terraform
+        terraform init -input=false
+        terraform plan -input=false
+        terraform apply -input=false -auto-approve
 
-    - name: Lint with flake8
+    - name: Configure kubectl
       run: |
-        flake8 app/main.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 app/main.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
+        aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
 
-    - name: Check code formatting with black
+    - name: Deploy Argo Rollouts
       run: |
-        black --check app/main.py || (black app/main.py && git diff --exit-code)
+        echo "🚀 Installing Argo Rollouts for canary deployments..."
+        
+        # Create argo-rollouts namespace
+        kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Install Argo Rollouts
+        kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+        
+        # Wait for Rollouts controller to be ready
+        kubectl wait --for=condition=available deployment/argo-rollouts -n argo-rollouts --timeout=300s
+        
+        echo "✅ Argo Rollouts installed!"
+        echo "🔧 Canary deployments now available"
 
-    - name: Type checking with mypy
+    - name: Deploy Secure Monitoring Stack
       run: |
-        mypy app/main.py --ignore-missing-imports
+        echo "🔐 Deploying secure monitoring with secrets..."
+        
+        # Create monitoring namespace
+        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Create Grafana admin secret from GitHub Secrets
+        kubectl create secret generic grafana-admin-secret \\
+          --from-literal=admin-user="admin" \\
+          --from-literal=admin-password="${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \\
+          --namespace=monitoring \\
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Add Helm repository
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo update
+        
+        # Deploy monitoring with existing secrets
+        helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \\
+          --namespace monitoring \\
+          --create-namespace \\
+          --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=20Gi \\
+          --set prometheus.prometheusSpec.resources.requests.cpu=500m \\
+          --set prometheus.prometheusSpec.resources.requests.memory=1Gi \\
+          --set grafana.admin.existingSecret=grafana-admin-secret \\
+          --set grafana.admin.userKey=admin-user \\
+          --set grafana.admin.passwordKey=admin-password \\
+          --set grafana.service.type=ClusterIP \\
+          --set alertmanager.enabled=true \\
+          --set alertmanager.persistence.enabled=true \\
+          --set alertmanager.persistence.size=10Gi \\
+          --wait
+        
+        echo "✅ Secure monitoring deployed!"
+        echo "🔑 All secrets managed securely via GitHub Secrets"
 
-    - name: Security scan with bandit
+    - name: Deploy Root App
       run: |
-        bandit -r app/main.py -f json -o bandit-report.json || true
+        # Apply: root application
+        kubectl apply -f argo-cd/root-app.yaml
+        
+        # Install Argo CD CLI
+        curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        chmod +x argocd
+        sudo mv argocd /usr/local/bin/argocd
+        
+        echo "✅ Root app deployed"
+        echo "🔄 Argo CD will manage all applications"
 
-    - name: Check dependencies for security vulnerabilities
+    - name: Bootstrap Argo CD (if not exists)
       run: |
-        safety check --json --output safety-report.json || true
-
-    - name: Upload security reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-reports
-        path: |
-          bandit-report.json
-          safety-report.json
+        # Check if Argo CD is already installed
+        if ! kubectl get namespace argocd &> /dev/null; then
+          kubectl create namespace argocd
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          
+          # Wait for Argo CD to be ready
+          kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
+          
+          # Create GitHub token secret for Argo CD
+          kubectl create secret generic github-token \\
+            --from-literal=token="${{ secrets.GITHUB_TOKEN }}" \\
+            --namespace=argocd \\
+            --type=Opaque
+          
+          echo "✅ Argo CD bootstrapped"
+        else
+          echo "ℹ️ Argo CD already exists"
+        fi
 
   # Build and Push Docker Image
   build-and-push:
