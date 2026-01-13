@@ -35,6 +35,7 @@ TASKS_TOTAL = Counter(
     ["action"],  # action can be: created, updated, deleted
 )
 
+
 # Database setup
 def init_db():
     """Initialize the SQLite database"""
@@ -276,7 +277,10 @@ def delete_task(task_id):
         TASKS_TOTAL.labels(action="deleted").inc()
         logger.info(f"Deleted task {task_id}")
 
-        return jsonify({"id": task_id, "message": "Task deleted successfully"}), 200
+        return (
+            jsonify({"id": task_id, "message": "Task deleted successfully"}),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error deleting task {task_id}: {e}")
