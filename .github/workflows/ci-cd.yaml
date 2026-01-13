@@ -100,38 +100,17 @@ jobs:
       run: |
         cd terraform
         
+        # Use Terraform workspace for environment isolation
+        echo "� Setting up Terraform workspace..."
+        terraform workspace select production || terraform workspace new production
+        
         # Initialize Terraform with proper backend configuration
-        terraform init -input=false -reconfigure
+        terraform init -input=false -upgrade
         
-        # Debug: Show current Terraform state
-        echo "🔍 Current Terraform state:"
-        terraform state list || echo "No state found or error listing state"
-        
-        # Check for existing EKS node group and import if needed
-        echo "🔍 Checking for existing EKS resources..."
-        CLUSTER_NAME="flask-devops-cluster"
-        NODE_GROUP_NAME="${CLUSTER_NAME}-node-group"
-        
-        # Try to import directly - if it fails, the node group doesn't exist or is already in state
-        echo "� Attempting to import node group (will fail if doesn't exist or already in state)..."
-        terraform import module.eks.aws_eks_node_group.main "$CLUSTER_NAME/$NODE_GROUP_NAME" 2>/dev/null
-        IMPORT_RESULT=$?
-        
-        if [ $IMPORT_RESULT -eq 0 ]; then
-          echo "✅ Import successful - node group was imported into state"
-        else
-          echo "ℹ️ Import not needed - node group either doesn't exist or already in state"
-        fi
-        
-        # Show state after potential import
-        echo "🔍 Terraform state after import attempt:"
-        terraform state list || echo "No state found or error listing state"
-        
-        # Plan and save to file for better debugging
+        # Simple, clean deployment
         echo "📋 Running Terraform plan..."
         terraform plan -input=false -out=tfplan
         
-        # Apply the saved plan
         echo "🚀 Applying Terraform plan..."
         terraform apply -input=false tfplan
 
@@ -234,6 +213,47 @@ jobs:
             --namespace=${{ env.ARGOCD_NAMESPACE }}
         fi
 
+  # Manual State Management (workflow dispatch only)
+  manage-terraform-state:
+    name: Manage Terraform State
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Manage State
+      run: |
+        cd terraform
+        
+        # Initialize Terraform
+        terraform init -input=false
+        
+        # Show current state
+        echo "🔍 Current Terraform state:"
+        terraform state list
+        
+        # Example state management commands (uncomment as needed):
+        # terraform import module.eks.aws_eks_node_group.main flask-devops-cluster/flask-devops-cluster-node-group
+        # terraform state rm module.eks.aws_eks_node_group.main
+        # terraform plan
+        
+        echo "📋 State management completed. Run specific commands as needed."
+
   # Infrastructure Recovery (only runs on failure)
   recover-infrastructure:
     name: Recover Infrastructure State
@@ -258,45 +278,22 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Diagnose and Recover State
+    - name: Diagnose Issues
       run: |
         cd terraform
         
-        echo "🔧 Diagnosing Terraform state issues..."
-        
-        # Initialize Terraform
+        echo "� Diagnosing deployment issues..."
+        terraform workspace select production || terraform workspace new production
         terraform init -input=false
         
-        # Check for state locks
-        echo "Checking for state locks..."
-        LOCK_INFO=$(terraform plan -input=false 2>&1 | grep -A 10 "Error acquiring the state lock" || echo "No lock found")
-        echo "Lock info: $LOCK_INFO"
+        echo "📋 Current state:"
+        terraform state list
         
-        # Extract lock ID if present
-        LOCK_ID=$(echo "$LOCK_INFO" | grep -o 'ID: [a-f0-9-]*' | cut -d' ' -f2 | head -1 || echo "")
+        echo "� Running plan to see what's needed:"
+        terraform plan
         
-        if [ -n "$LOCK_ID" ]; then
-          echo "🔓 Found state lock, attempting to unlock: $LOCK_ID"
-          terraform force-unlock -force "$LOCK_ID" || echo "Failed to unlock automatically"
-        fi
-        
-        # Check for existing resources that might need importing
-        echo "🔍 Checking for existing EKS resources..."
-        CLUSTER_NAME="flask-devops-cluster"
-        NODE_GROUP_NAME="${CLUSTER_NAME}-node-group"
-        
-        # Check if node group exists in AWS but not in Terraform state
-        NODE_GROUP_EXISTS=$(aws eks describe-node-group --cluster-name "$CLUSTER_NAME" --nodegroup-name "$NODE_GROUP_NAME" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "not_found")
-        
-        if [ "$NODE_GROUP_EXISTS" != "not_found" ]; then
-          echo "📦 Found existing node group, attempting to import..."
-          terraform import module.eks.aws_eks_node_group.main "$CLUSTER_NAME/$NODE_GROUP_NAME" || echo "Import failed"
-        fi
-        
-        echo "🏁 Recovery completed. Please retry the deployment manually."
-        echo "📋 If issues persist, check Terraform state manually and run:"
-        echo "   terraform state list"
-        echo "   terraform plan"
+        echo "🏁 Manual intervention may be required."
+        echo "📋 Use the 'Manage Terraform State' workflow for state operations."
 
   
   # Verify Deployment (GitOps - Argo CD handles actual deployment)
