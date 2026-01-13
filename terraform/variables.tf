@@ -49,7 +49,7 @@ variable "availability_zones" {
 variable "kubernetes_version" {
   description = "Kubernetes version for EKS cluster"
   type        = string
-  default     = "1.28"
+  default     = "1.29"
 }
 
 variable "endpoint_private_access" {
@@ -85,7 +85,7 @@ variable "desired_size" {
 variable "max_size" {
   description = "Maximum number of worker nodes"
   type        = number
-  default     = 3
+  default     = 2
 }
 
 variable "min_size" {
@@ -97,7 +97,7 @@ variable "min_size" {
 variable "instance_type" {
   description = "EC2 instance type for worker nodes"
   type        = string
-  default     = "t3.small"
+  default     = "t3a.small"
 }
 
 variable "ssh_key_name" {

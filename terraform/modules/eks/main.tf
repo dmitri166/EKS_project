@@ -37,6 +37,13 @@ resource "aws_eks_node_group" "main" {
 
   instance_types = [var.instance_type]
 
+  ami_type = "AL2_x86_64"
+  capacity_type = "ON_DEMAND"
+  
+  update_config {
+    max_unavailable = 1
+  }
+
   remote_access {
     ec2_ssh_key               = var.ssh_key_name
     source_security_group_ids = [aws_security_group.node_sg.id]
@@ -147,7 +154,7 @@ resource "aws_security_group_rule" "cluster_egress_nodes" {
 # - Argo CD: Kubernetes applications only
 # - Helm: Application deployment
 
-# Create ECR repository
+# Create ECR repository only if it doesn't exist
 resource "aws_ecr_repository" "flask_app" {
   name                 = "flask-app"
   image_tag_mutability = "MUTABLE"
@@ -163,4 +170,9 @@ resource "aws_ecr_repository" "flask_app" {
     },
     var.tags
   )
+  
+  # Prevent recreation if repository already exists
+  lifecycle {
+    prevent_destroy = false
+  }
 }
