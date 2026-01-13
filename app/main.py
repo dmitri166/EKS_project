@@ -9,7 +9,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -17,25 +17,25 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Database path (default aligns with Helm PVC mountPath: /app/data)
-DB_PATH = os.getenv('SQLITE_DB_PATH', '/app/data/tasks.db')
+DB_PATH = os.getenv("SQLITE_DB_PATH", "/app/data/tasks.db")
 
 # Prometheus metrics
 REQUEST_COUNT = Counter(
-    'flask_requests_total',
-    'Total requests',
-    ['method', 'endpoint', 'status']
+    "flask_requests_total",
+    "Total requests",
+    ["method", "endpoint", "status"]
 )
 
 REQUEST_DURATION = Histogram(
-    'flask_request_duration_seconds',
-    'Request duration in seconds',
-    ['method', 'endpoint']
+    "flask_request_duration_seconds",
+    "Request duration in seconds",
+    ["method", "endpoint"]
 )
 
 TASKS_TOTAL = Counter(
-    'flask_tasks_total',
-    'Total number of tasks',
-    ['action']  # action can be: created, updated, deleted
+    "flask_tasks_total",
+    "Total number of tasks",
+    ["action"]  # action can be: created, updated, deleted
 )
 
 # Database setup

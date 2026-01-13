@@ -167,7 +167,7 @@ jobs:
 
     - name: Check code formatting with black
       run: |
-        black --check app/main.py
+        black --check app/main.py || (black app/main.py && git diff --exit-code)
 
     - name: Check import sorting with isort
       run: |
