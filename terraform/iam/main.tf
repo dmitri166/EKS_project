@@ -7,7 +7,13 @@ terraform {
     }
   }
 
-  backend "s3" {}
+  backend "s3" {
+    bucket = "eks-project-terraform-state-025988852505"
+    key    = "iam/terraform.tfstate"
+    region = "us-east-1"
+    dynamodb_table = "terraform-locks"
+    encrypt = true
+  }
 }
 
 provider "aws" {
