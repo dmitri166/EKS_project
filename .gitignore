@@ -1,0 +1,47 @@
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Terraform provider binaries
+.terraform/providers/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python-build/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Kubernetes
+*.kubeconfig
+
+# Docker
+.docker/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
