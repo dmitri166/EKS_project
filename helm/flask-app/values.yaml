@@ -1,0 +1,128 @@
+# Default values for flask-app.
+# This is a YAML-formatted file.
+
+replicaCount: 2
+
+image:
+  repository: 025988852505.dkr.ecr.us-east-1.amazonaws.com/flask-app
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "5000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 5000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: flask-app.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 85
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Environment variables
+env: []
+
+# Persistent volume for SQLite database
+persistence:
+  enabled: true
+  storageClass: "gp2"
+  accessMode: ReadWriteOnce
+  size: 512Mi
+  mountPath: /app/data
+
+# Configuration
+config:
+  flaskDebug: "false"
+  logLevel: "INFO"
+
+# Service Monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  namespace: ""
+  labels: {}
+  interval: 30s
+  scrapeTimeout: 10s
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  maxUnavailable: ""
+
+# Network policies
+networkPolicy:
+  enabled: true
+  ingress: []
+  egress: []

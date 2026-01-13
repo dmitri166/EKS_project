@@ -1,0 +1,146 @@
+groups:
+  - name: flask_app_alerts
+    rules:
+      - alert: FlaskAppDown
+        expr: up{job="flask-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: flask-app
+        annotations:
+          summary: "Flask application is down"
+          description: "Flask application has been down for more than 1 minute."
+
+      - alert: HighRequestRate
+        expr: rate(flask_requests_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: flask-app
+        annotations:
+          summary: "High request rate detected"
+          description: "Flask application is receiving more than 10 requests per second for the last 2 minutes."
+
+      - alert: HighErrorRate
+        expr: rate(flask_requests_total{status!~"2.."}[5m]) / rate(flask_requests_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: flask-app
+        annotations:
+          summary: "High error rate detected"
+          description: "Flask application error rate is above 10% for the last 3 minutes."
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(flask_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: flask-app
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is above 1 second for the last 5 minutes."
+
+      - alert: TooManyTasks
+        expr: flask_tasks_total{action="created"} - flask_tasks_total{action="deleted"} > 1000
+        for: 10m
+        labels:
+          severity: info
+          service: flask-app
+        annotations:
+          summary: "High number of tasks"
+          description: "Number of tasks exceeds 1000. Consider cleanup."
+
+  - name: kubernetes_alerts
+    rules:
+      - alert: KubernetesPodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod is crash looping"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is crash looping."
+
+      - alert: KubernetesNodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kubernetes Node not ready"
+          description: "Node {{ $labels.node }} has been not ready for more than 10 minutes."
+
+      - alert: KubernetesPodNotReady
+        expr: kube_pod_status_ready{condition="true"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod not ready"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been not ready for more than 5 minutes."
+
+      - alert: KubernetesMemoryPressure
+        expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes memory pressure"
+          description: "Node {{ $labels.node }} has memory pressure for more than 5 minutes."
+
+      - alert: KubernetesDiskPressure
+        expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes disk pressure"
+          description: "Node {{ $labels.node }} has disk pressure for more than 5 minutes."
+
+      - alert: KubernetesPodsTooMany
+        expr: sum(kube_pod_info) > 100
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Too many pods"
+          description: "Cluster has more than 100 pods. Consider scaling up."
+
+  - name: infrastructure_alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for more than 5 minutes on instance {{ $labels.instance }}."
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 85% for more than 5 minutes on instance {{ $labels.instance }}."
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is below 10% on instance {{ $labels.instance }}."
+
+      - alert: NetworkLatencyHigh
+        expr: probe_duration_seconds > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High network latency"
+          description: "Network latency is above 500ms for instance {{ $labels.instance }}."

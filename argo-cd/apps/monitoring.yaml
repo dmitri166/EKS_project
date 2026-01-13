@@ -1,0 +1,79 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "45.28.0"
+    helm:
+      releaseName: monitoring
+      parameters:
+        - name: grafana.adminPassword
+          value: "admin123"
+        - name: grafana.service.type
+          value: ClusterIP  # Changed from LoadBalancer to save costs
+        - name: prometheus.service.type
+          value: ClusterIP  # Changed from LoadBalancer to save costs
+        - name: alertmanager.service.type
+          value: ClusterIP  # Changed from LoadBalancer to save costs
+        - name: prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage
+          value: 5Gi  # Reduced from 10Gi for cost savings
+        - name: grafana.persistence.storage
+          value: 2Gi  # Reduced from 5Gi for cost savings
+        - name: grafana.persistence.enabled
+          value: "true"
+        - name: prometheus.prometheusSpec.resources.requests.cpu
+          value: 250m  # Reduced for cost savings
+        - name: prometheus.prometheusSpec.resources.requests.memory
+          value: 256Mi  # Reduced for cost savings
+        - name: prometheus.prometheusSpec.resources.limits.cpu
+          value: 500m  # Reduced for cost savings
+        - name: prometheus.prometheusSpec.resources.limits.memory
+          value: 512Mi  # Reduced for cost savings
+        - name: grafana.resources.requests.cpu
+          value: 100m  # Reduced for cost savings
+        - name: grafana.resources.requests.memory
+          value: 128Mi  # Reduced for cost savings
+        - name: grafana.resources.limits.cpu
+          value: 200m  # Reduced for cost savings
+        - name: grafana.resources.limits.memory
+          value: 256Mi  # Reduced for cost savings
+        - name: kube-state-metrics.resources.requests.cpu
+          value: 50m  # Reduced for cost savings
+        - name: kube-state-metrics.resources.requests.memory
+          value: 64Mi  # Reduced for cost savings
+        - name: nodeExporter.resources.requests.cpu
+          value: 50m  # Reduced for cost savings
+        - name: nodeExporter.resources.requests.memory
+          value: 64Mi  # Reduced for cost savings
+        - name: defaultRules.create
+          value: "false"  # Disabled default rules to save resources
+        - name: alertmanager.enabled
+          value: "false"  # Disabled alertmanager to save costs
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 3
