@@ -103,6 +103,23 @@ jobs:
         # Initialize Terraform with proper backend configuration
         terraform init -input=false -reconfigure
         
+        # Check for existing EKS node group and import if needed
+        echo "🔍 Checking for existing EKS resources..."
+        CLUSTER_NAME="flask-devops-cluster"
+        NODE_GROUP_NAME="${CLUSTER_NAME}-node-group"
+        
+        # Check if node group exists in AWS but not in Terraform state
+        NODE_GROUP_EXISTS=$(aws eks describe-node-group --cluster-name "$CLUSTER_NAME" --nodegroup-name "$NODE_GROUP_NAME" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "not_found")
+        NODE_GROUP_IN_STATE=$(terraform state list | grep "module.eks.aws_eks_node_group.main" || echo "not_in_state")
+        
+        echo "Node group in AWS: $NODE_GROUP_EXISTS"
+        echo "Node group in Terraform state: $NODE_GROUP_IN_STATE"
+        
+        if [ "$NODE_GROUP_EXISTS" != "not_found" ] && [ "$NODE_GROUP_IN_STATE" == "not_in_state" ]; then
+          echo "📦 Found existing node group in AWS but not in state, importing..."
+          terraform import module.eks.aws_eks_node_group.main "$CLUSTER_NAME/$NODE_GROUP_NAME" || echo "Import failed"
+        fi
+        
         # Plan and save to file for better debugging
         terraform plan -input=false -out=tfplan
         
