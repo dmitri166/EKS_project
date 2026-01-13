@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/dmitri166/EKS_project.git
-    targetRevision: main
+    targetRevision: master
     path: helm/flask-app
     helm:
       valueFiles:

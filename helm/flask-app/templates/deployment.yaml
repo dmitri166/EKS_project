@@ -34,7 +34,7 @@ spec:
       initContainers:
         - name: init-db
           image: busybox:1.35
-          command: ['sh', '-c', 'mkdir -p /app/data && chmod 755 /app/data']
+          command: ['sh', '-c', 'mkdir -p /app/data && chown -R 1000:1000 /app/data && chmod 775 /app/data']
           volumeMounts:
             - name: data
               mountPath: /app/data

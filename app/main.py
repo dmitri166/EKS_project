@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 
+# Database path (default aligns with Helm PVC mountPath: /app/data)
+DB_PATH = os.getenv('SQLITE_DB_PATH', '/app/data/tasks.db')
+
 # Prometheus metrics
 REQUEST_COUNT = Counter(
     'flask_requests_total',
@@ -39,7 +42,7 @@ TASKS_TOTAL = Counter(
 def init_db():
     """Initialize the SQLite database"""
     try:
-        conn = sqlite3.connect('tasks.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS tasks (
@@ -60,7 +63,7 @@ def init_db():
 
 def get_db_connection():
     """Get database connection"""
-    conn = sqlite3.connect('tasks.db')
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 

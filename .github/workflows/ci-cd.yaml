@@ -10,6 +10,7 @@ env:
   REGISTRY: 025988852505.dkr.ecr.us-east-1.amazonaws.com
   IMAGE_NAME: flask-app
   DOCKERFILE_PATH: app/Dockerfile
+  CLUSTER_NAME: flask-devops-cluster
   
 
 jobs:
@@ -23,6 +24,21 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.6
+
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: 'v1.28.0'
+
+    - name: Install jq
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -181,7 +197,7 @@ jobs:
         name: codecov-umbrella
 
     - name: Upload security reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-reports
         path: |
@@ -244,7 +260,7 @@ jobs:
         output-file: sbom.json
 
     - name: Upload SBOM
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: sbom
         path: sbom.json
@@ -265,7 +281,7 @@ jobs:
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: trivy-results
         path: trivy-results.sarif
@@ -282,6 +298,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: 'v1.28.0'
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -291,8 +312,7 @@ jobs:
 
     - name: Update kubeconfig
       run: |
-        CLUSTER_NAME=$(cd terraform/eks && terraform output -raw cluster_name)
-        aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
+        aws eks update-kubeconfig --region us-east-1 --name ${{ env.CLUSTER_NAME }}
 
     - name: Install Argo CD CLI
       run: |
@@ -346,19 +366,3 @@ jobs:
         text: '🚀 Flask app deployed to production via GitOps successfully!'
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  # Cleanup
-  cleanup:
-    name: Cleanup
-    runs-on: ubuntu-latest
-    needs: [verify-deployment]
-    if: always()
-
-    steps:
-    - name: Cleanup old Docker images
-      uses: actions/delete-package-versions@v4
-      with:
-        package-name: ${{ env.IMAGE_NAME }}
-        package-type: 'container'
-        min-versions-to-keep: 10
-        delete-only-untagged-versions: true
