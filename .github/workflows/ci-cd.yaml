@@ -66,6 +66,13 @@ jobs:
           terraform force-unlock -force "$LOCK_ID" || echo "Force unlock failed, continuing anyway..."
         fi
         
+        # Check for existing resources that need to be imported
+        echo "Checking for existing EKS resources..."
+        if terraform plan -input=false 2>&1 | grep -q "NodeGroup already exists"; then
+          echo "Existing node group detected, importing into state..."
+          terraform import module.eks.aws_eks_node_group.main flask-devops-cluster/flask-devops-cluster-node-group || echo "Import failed, continuing..."
+        fi
+        
         terraform plan -input=false
         terraform apply -input=false -auto-approve
 
