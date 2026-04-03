@@ -13,10 +13,13 @@ spec:
       values: |
         architecture: standalone
         auth:
-          enabled: false # For testing, enable in real prod
+          enabled: true
+          existingSecret: redis-auth
+          existingSecretPasswordKey: redis-password
         master:
           persistence:
-            enabled: false
+            enabled: true
+            size: 8Gi
   destination:
     server: https://kubernetes.default.svc
     namespace: default

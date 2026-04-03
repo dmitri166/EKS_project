@@ -9,6 +9,9 @@ metadata:
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- if .Values.rollout.enabled }}
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+    {{- end }}
 spec:
   ingressClassName: alb
   rules:

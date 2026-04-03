@@ -7,7 +7,7 @@ metadata:
   {{- with .Values.serviceMonitor.enabled }}
   annotations:
     prometheus.io/scrape: "true"
-    prometheus.io/port: "{{ .Values.service.port }}"
+    prometheus.io/port: {{ $.Values.service.port | quote }}
     prometheus.io/path: "/metrics"
   {{- end }}
 spec:
@@ -19,3 +19,22 @@ spec:
       name: http
   selector:
     {{- include "flask-app.selectorLabels" . | nindent 4 }}
+
+{{- if .Values.rollout.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flask-app.fullname" . }}-canary
+  labels:
+    {{- include "flask-app.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "flask-app.selectorLabels" . | nindent 4 }}
+{{- end }}

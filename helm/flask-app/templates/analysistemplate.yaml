@@ -1,0 +1,42 @@
+{{- if and .Values.rollout.enabled .Values.rollout.strategy.canary.analysis.enabled -}}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: success-rate
+      interval: 2m
+      count: 5
+      successCondition: {{ .Values.rollout.analysis.successRate.condition }}
+      failureLimit: {{ .Values.rollout.analysis.successRate.failureLimit }}
+      provider:
+        prometheus:
+          address: {{ .Values.rollout.analysis.prometheusAddress }}
+          query: |
+            sum(rate(flask_requests_total{service="{{`{{args.service-name}}` }}",status!~"5.."}[2m])) /
+            sum(rate(flask_requests_total{service="{{`{{args.service-name}}` }}"}[2m]))
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: latency
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: latency
+      interval: 2m
+      count: 5
+      successCondition: {{ .Values.rollout.analysis.latency.condition }}
+      failureLimit: {{ .Values.rollout.analysis.latency.failureLimit }}
+      provider:
+        prometheus:
+          address: {{ .Values.rollout.analysis.prometheusAddress }}
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(flask_request_duration_seconds_bucket{service="{{ `{{args.service-name}}` }}"}[5m])) by (le)
+            )
+{{- end }}

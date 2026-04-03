@@ -134,3 +134,31 @@ networkPolicy:
   enabled: true
   ingress: []
   egress: []
+
+# Argo Rollouts Configuration
+rollout:
+  enabled: false
+  replicas: 2
+  strategy:
+    canary:
+      steps:
+        - setWeight: 20
+        - pause: {duration: 2m}
+        - setWeight: 50
+        - pause: {duration: 2m}
+        - setWeight: 100
+      analysis:
+        enabled: true
+        templates:
+          - success-rate
+          - latency
+        startingStep: 1
+  # Analysis settings
+  analysis:
+    prometheusAddress: http://monitoring-prometheus.monitoring.svc.cluster.local:9090
+    successRate:
+      condition: "result[0] >= 0.95"
+      failureLimit: 3
+    latency:
+      condition: "result[0] <= 0.5"
+      failureLimit: 3

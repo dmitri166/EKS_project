@@ -5,10 +5,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    http = {
+      source  = "hashicorp/http"
+      version = "~> 3.0"
+    }
   }
 
   backend "s3" {
-    bucket = "eks-project-terraform-state-<AWS_ACCOUNT_ID>"
+    bucket = "eks-project-terraform-state-025988852505"
     key    = "terraform.tfstate"
     region = "us-east-1"
     dynamodb_table = "terraform-locks"
@@ -105,7 +109,6 @@ module "rds" {
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
   eks_node_sg_id     = module.eks.cluster_security_group_id # Using cluster SG for now, node SG is also a candidate
-  db_password        = var.db_password
   tags               = var.tags
 
   depends_on = [module.vpc, module.eks]

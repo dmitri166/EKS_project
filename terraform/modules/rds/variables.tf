@@ -24,11 +24,6 @@ variable "db_username" {
   default = "postgres"
 }
 
-variable "db_password" {
-  type      = string
-  sensitive = true
-}
-
 variable "tags" {
   type    = map(string)
   default = {}

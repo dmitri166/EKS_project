@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eso-resources
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dmitri166/EKS_project.git
+    targetRevision: master
+    path: k8s/eso-resources
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-secrets # Store the secret stores here or in namespaces where needed
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
