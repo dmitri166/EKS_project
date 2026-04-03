@@ -37,6 +37,10 @@ resource "aws_acm_certificate_validation" "main" {
   count                   = var.route53_zone_id != "" ? 1 : 0
   certificate_arn         = aws_acm_certificate.main.arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+
+  timeouts {
+    create = "45m"
+  }
 }
 
 # Output certificate ARN
