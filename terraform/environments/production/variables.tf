@@ -49,7 +49,7 @@ variable "availability_zones" {
 variable "kubernetes_version" {
   description = "Kubernetes version for EKS cluster"
   type        = string
-  default     = "1.29"
+  default     = "1.31"
 }
 
 variable "endpoint_private_access" {
