@@ -92,15 +92,20 @@ readinessProbe:
   failureThreshold: 3
 
 # Environment variables
-env: []
+env:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: flask-db-secret
+        key: DATABASE_URL
+  - name: REDIS_HOST
+    value: redis-master.default.svc.cluster.local
+  - name: REDIS_PORT
+    value: "6379"
 
-# Persistent volume for SQLite database
+# Persistent volume for SQLite database (DISABLED for 3-tier)
 persistence:
-  enabled: true
-  storageClass: "gp2"
-  accessMode: ReadWriteOnce
-  size: 512Mi
-  mountPath: /app/data
+  enabled: false
 
 # Configuration
 config:

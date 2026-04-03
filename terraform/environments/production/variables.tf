@@ -120,3 +120,9 @@ variable "tags" {
     Project   = "flask-devops"
   }
 }
+
+variable "db_password" {
+  description = "Database password for RDS"
+  type        = string
+  sensitive   = true
+}

@@ -40,6 +40,7 @@ resource "aws_subnet" "public" {
       Name        = "${var.project_name}-public-${count.index + 1}"
       Environment = var.environment
       Type        = "Public"
+      "karpenter.sh/discovery" = var.cluster_name
     },
     var.tags
   )
@@ -58,6 +59,7 @@ resource "aws_subnet" "private" {
       Name        = "${var.project_name}-private-${count.index + 1}"
       Environment = var.environment
       Type        = "Private"
+      "karpenter.sh/discovery" = var.cluster_name
     },
     var.tags
   )

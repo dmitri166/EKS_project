@@ -42,3 +42,13 @@ output "ecr_repository_url" {
   description = "ECR repository URL"
   value       = aws_ecr_repository.flask_app.repository_url
 }
+
+output "oidc_provider_arn" {
+  description = "IAM OIDC provider ARN"
+  value       = aws_iam_openid_connect_provider.eks.arn
+}
+
+output "oidc_provider_url" {
+  description = "IAM OIDC provider URL"
+  value       = aws_iam_openid_connect_provider.eks.url
+}

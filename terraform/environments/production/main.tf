@@ -22,7 +22,7 @@ provider "aws" {
 
 # VPC Module
 module "vpc" {
-  source = "./modules/vpc"
+  source = "../../modules/vpc"
 
   aws_region            = var.aws_region
   project_name          = var.project_name
@@ -31,12 +31,13 @@ module "vpc" {
   public_subnet_cidrs   = var.public_subnet_cidrs
   private_subnet_cidrs  = var.private_subnet_cidrs
   availability_zones    = var.availability_zones
+  cluster_name          = var.cluster_name
   tags                  = var.tags
 }
 
 # IAM Module
 module "iam" {
-  source = "./modules/iam"
+  source = "../../modules/iam"
 
   aws_region        = var.aws_region
   project_name      = var.project_name
@@ -47,7 +48,7 @@ module "iam" {
 
 # EKS Module
 module "eks" {
-  source = "./modules/eks"
+  source = "../../modules/eks"
 
   aws_region                = var.aws_region
   cluster_name              = var.cluster_name
@@ -71,4 +72,53 @@ module "eks" {
   tags                      = var.tags
 
   depends_on = [module.vpc, module.iam]
+}
+
+# OIDC Module
+module "oidc" {
+  source = "../../modules/oidc"
+
+  project_name = var.project_name
+  github_repo  = "dmitri166/EKS_project"
+  tags         = var.tags
+}
+
+# Karpenter Module
+module "karpenter" {
+  source = "../../modules/karpenter"
+
+  project_name      = var.project_name
+  cluster_name      = module.eks.cluster_name
+  cluster_arn       = module.eks.cluster_arn
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = var.tags
+
+  depends_on = [module.eks]
+}
+
+# RDS Module
+module "rds" {
+  source = "../../modules/rds"
+
+  project_name       = var.project_name
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+  eks_node_sg_id     = module.eks.cluster_security_group_id # Using cluster SG for now, node SG is also a candidate
+  db_password        = var.db_password
+  tags               = var.tags
+
+  depends_on = [module.vpc, module.eks]
+}
+
+# ESO Module
+module "eso" {
+  source = "../../modules/eso"
+
+  project_name      = var.project_name
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = var.tags
+
+  depends_on = [module.eks]
 }

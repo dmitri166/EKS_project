@@ -10,6 +10,11 @@ variable "project_name" {
   default     = "flask-devops"
 }
 
+variable "cluster_name" {
+  description = "EKS cluster name"
+  type        = string
+}
+
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
