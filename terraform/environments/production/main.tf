@@ -12,11 +12,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "eks-project-terraform-state-025988852505"
-    key    = "terraform.tfstate"
-    region = "us-east-1"
+    bucket         = "eks-project-terraform-state-025988852505"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
     dynamodb_table = "terraform-locks"
-    encrypt = true
+    encrypt        = true
   }
 }
 
@@ -28,26 +28,26 @@ provider "aws" {
 module "vpc" {
   source = "../../modules/vpc"
 
-  aws_region            = var.aws_region
-  project_name          = var.project_name
-  environment           = var.environment
-  vpc_cidr              = var.vpc_cidr
-  public_subnet_cidrs   = var.public_subnet_cidrs
-  private_subnet_cidrs  = var.private_subnet_cidrs
-  availability_zones    = var.availability_zones
-  cluster_name          = var.cluster_name
-  tags                  = var.tags
+  aws_region           = var.aws_region
+  project_name         = var.project_name
+  environment          = var.environment
+  vpc_cidr             = var.vpc_cidr
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  availability_zones   = var.availability_zones
+  cluster_name         = var.cluster_name
+  tags                 = var.tags
 }
 
 # IAM Module
 module "iam" {
   source = "../../modules/iam"
 
-  aws_region        = var.aws_region
-  project_name      = var.project_name
-  environment       = var.environment
-  eks_cluster_name  = var.cluster_name
-  tags              = var.tags
+  aws_region       = var.aws_region
+  project_name     = var.project_name
+  environment      = var.environment
+  eks_cluster_name = var.cluster_name
+  tags             = var.tags
 }
 
 # EKS Module
@@ -142,10 +142,10 @@ module "security_groups" {
 module "acm" {
   source = "../../modules/acm"
 
-  project_name     = var.project_name
-  environment      = var.environment
-  domain_name      = var.domain_name
-  route53_zone_id  = var.route53_zone_id
+  project_name    = var.project_name
+  environment     = var.environment
+  domain_name     = var.domain_name
+  route53_zone_id = var.route53_zone_id
 
   depends_on = [module.vpc]
 }
