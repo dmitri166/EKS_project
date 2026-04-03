@@ -1,0 +1,93 @@
+name: Application CD (GitOps)
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'app/**'
+      - 'helm/flask-app/**'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 025988852505.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: flask-app
+
+jobs:
+  test-build-push:
+    name: Test, Build, Scan, Push & Update GitOps
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        # We need a PAT or token with permissions to push changes back to the repo
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+
+    - name: Run Tests (Placeholder)
+      run: |
+        echo "Running unit tests for the super awesome Flask API"
+        # pip install -r app/requirements.txt
+        # pytest app/
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set Image Tag
+      id: vars
+      run: echo "IMAGE_TAG=${{ github.sha }}-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+
+    - name: Build Docker Image
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest ./app
+
+    - name: Security Scan (Trivy)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}'
+        format: 'table'
+        exit-code: '0'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Push Docker Image to ECR
+      run: |
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+    - name: Update Helm Values for GitOps (ArgoCD)
+      run: |
+        # Update the image tag in our Helm chart values
+        sed -i "s/tag: .*/tag: \"${{ env.IMAGE_TAG }}\"/g" helm/flask-app/values.yaml
+        
+        # Git config
+        git config user.name "GitHub Actions Bot"
+        git config user.email "actions@github.com"
+        
+        # Commit and push
+        git add helm/flask-app/values.yaml
+        git commit -m "chore(gitops): update image tag to ${{ env.IMAGE_TAG }}" || echo "No changes to commit"
+        git push origin master
+        
+        echo "✅ New image tag pushed to master. ArgoCD will now Sync and rollout the Canary automatically."

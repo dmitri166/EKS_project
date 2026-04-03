@@ -126,6 +126,30 @@ module "eso" {
   depends_on = [module.eks]
 }
 
+# Security Groups Module
+module "security_groups" {
+  source = "../../modules/security-groups"
+
+  project_name  = var.project_name
+  environment   = var.environment
+  vpc_id        = module.vpc.vpc_id
+  allowed_cidrs = var.alb_allowed_cidrs
+
+  depends_on = [module.vpc]
+}
+
+# ACM Certificate Module
+module "acm" {
+  source = "../../modules/acm"
+
+  project_name     = var.project_name
+  environment      = var.environment
+  domain_name      = var.domain_name
+  route53_zone_id  = var.route53_zone_id
+
+  depends_on = [module.vpc]
+}
+
 # ALB Controller Module
 module "alb_controller" {
   source = "../../modules/alb-controller"

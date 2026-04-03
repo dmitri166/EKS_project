@@ -35,6 +35,11 @@ spec:
           value: "512Mi"
         - name: service.type
           value: ClusterIP
+        # Security parameters - these will be set by external secrets or automation
+        - name: ingress.annotations."alb\.ingress\.kubernetes\.io/certificate-arn"
+          value: "PLACEHOLDER_CERT_ARN"
+        - name: ingress.annotations."alb\.ingress\.kubernetes\.io/security-groups"
+          value: "PLACEHOLDER_SG_ID"
   destination:
     server: https://kubernetes.default.svc
     namespace: flask-app

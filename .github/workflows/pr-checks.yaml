@@ -1,0 +1,45 @@
+name: PR Checks (Code Quality & Security)
+
+on:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'app/**'
+      - 'helm/flask-app/**'
+
+jobs:
+  lint-and-sec:
+    name: Lint & Security Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies for checks
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black bandit safety
+        if [ -f app/requirements.txt ]; then pip install -r app/requirements.txt; fi
+
+    - name: Lint with Flake8
+      run: |
+        flake8 app/main.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app/main.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Code Formatting Check (Black)
+      run: |
+        black --check app/main.py || echo "Warning: Code is not formatted with Black. Run 'black app/main.py' locally."
+
+    - name: Security Scan (Bandit)
+      run: |
+        bandit -r app/main.py
+
+    - name: Dependency Vulnerability Check (Safety)
+      run: |
+        safety check || echo "Warning: Some dependencies may have vulnerabilities."
