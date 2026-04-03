@@ -122,3 +122,15 @@ module "eso" {
 
   depends_on = [module.eks]
 }
+
+# ALB Controller Module
+module "alb_controller" {
+  source = "../../modules/alb-controller"
+
+  project_name      = var.project_name
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = var.tags
+
+  depends_on = [module.eks]
+}

@@ -15,7 +15,17 @@ spec:
       releaseName: argocd
       parameters:
         - name: server.service.type
-          value: LoadBalancer
+          value: ClusterIP
+        - name: server.ingress.enabled
+          value: "true"
+        - name: server.ingress.annotations.alb\.ingress\.kubernetes\.io/group\.name
+          value: common
+        - name: server.ingress.annotations.alb\.ingress\.kubernetes\.io/scheme
+          value: internet-facing
+        - name: server.ingress.annotations.alb\.ingress\.kubernetes\.io/target-type
+          value: ip
+        - name: server.ingress.path
+          value: /argo
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

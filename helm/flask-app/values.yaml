@@ -43,9 +43,12 @@ service:
   targetPort: 5000
 
 ingress:
-  enabled: false
-  className: ""
-  annotations: {}
+  enabled: true
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: common
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
   hosts:
     - host: flask-app.local
       paths:

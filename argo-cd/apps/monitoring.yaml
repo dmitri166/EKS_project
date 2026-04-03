@@ -55,7 +55,19 @@ spec:
         - name: defaultRules.create
           value: "false"  # Disabled default rules to save resources
         - name: alertmanager.enabled
-          value: "false"  # Disabled alertmanager to save costs
+          value: "false"
+        - name: grafana.ingress.enabled
+          value: "true"
+        - name: grafana.ingress.ingressClassName
+          value: alb
+        - name: grafana.ingress.annotations.alb\.ingress\.kubernetes\.io/group\.name
+          value: common
+        - name: grafana.ingress.annotations.alb\.ingress\.kubernetes\.io/scheme
+          value: internet-facing
+        - name: grafana.ingress.annotations.alb\.ingress\.kubernetes\.io/target-type
+          value: ip
+        - name: grafana.ingress.path
+          value: /grafana
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
