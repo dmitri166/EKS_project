@@ -41,8 +41,6 @@ data "aws_ssm_parameter" "eks_ami_id" {
 resource "aws_launch_template" "eks_nodes" {
   name_prefix   = "${var.cluster_name}-node-template-"
   image_id      = data.aws_ssm_parameter.eks_ami_id.value
-  
-  vpc_security_group_ids = [aws_security_group.node_sg.id]
 
   user_data = base64encode(<<-EOF
 MIME-Version: 1.0
