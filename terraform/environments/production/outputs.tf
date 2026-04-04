@@ -58,7 +58,7 @@ output "eks_nodes_security_group_id" {
 }
 
 # ACM Certificate Output
-output "acm_certificate_arn" {
-  description = "ACM certificate ARN"
-  value       = module.acm.certificate_arn
-}
+# output "acm_certificate_arn" {
+#   description = "ACM certificate ARN"
+#   value       = module.acm.certificate_arn
+# }

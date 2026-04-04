@@ -139,16 +139,16 @@ module "security_groups" {
 }
 
 # ACM Certificate Module
-module "acm" {
-  source = "../../modules/acm"
-
-  project_name    = var.project_name
-  environment     = var.environment
-  domain_name     = var.domain_name
-  route53_zone_id = var.route53_zone_id
-
-  depends_on = [module.vpc]
-}
+# module "acm" {
+#   source = "../../modules/acm"
+#
+#   project_name    = var.project_name
+#   environment     = var.environment
+#   domain_name     = var.domain_name
+#   route53_zone_id = var.route53_zone_id
+#
+#   depends_on = [module.vpc]
+# }
 
 # ALB Controller Module
 module "alb_controller" {

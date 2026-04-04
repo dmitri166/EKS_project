@@ -86,6 +86,12 @@ resource "aws_iam_role_policy_attachment" "eks_ssm_policy" {
   role       = aws_iam_role.eks_node_role.name
 }
 
+# Attach EBS CSI Driver Policy
+resource "aws_iam_role_policy_attachment" "eks_ebs_csi_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.eks_node_role.name
+}
+
 # Custom Policy for EKS Nodes
 resource "aws_iam_policy" "eks_node_custom_policy" {
   name        = "${var.project_name}-eks-node-custom-policy-${var.environment}"

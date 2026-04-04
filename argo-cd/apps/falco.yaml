@@ -13,7 +13,7 @@ spec:
       values: |
         driver:
           enabled: true
-          type: modern-ebpf
+          kind: modern_ebpf
         tty: true
         sidekick:
           enabled: true
