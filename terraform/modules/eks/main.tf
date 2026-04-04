@@ -32,12 +32,58 @@ resource "aws_eks_addon" "ebs_csi_driver" {
   depends_on = [aws_eks_node_group.main]
 }
 
+# Get EKS optimized AMI for the cluster version
+data "aws_ssm_parameter" "eks_ami_id" {
+  name = "/aws/service/eks/optimized-ami/${var.kubernetes_version}/amazon-linux-2/recommended/image_id"
+}
+
+# Custom Launch Template to override max-pods
+resource "aws_launch_template" "eks_nodes" {
+  name_prefix   = "${var.cluster_name}-node-template-"
+  image_id      = data.aws_ssm_parameter.eks_ami_id.value
+  
+  vpc_security_group_ids = [aws_security_group.node_sg.id]
+
+  user_data = base64encode(<<-EOF
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+--==MYBOUNDARY==
+Content-Type: text/x-shellscript; charset="us-ascii"
+
+#!/bin/bash
+/etc/eks/bootstrap.sh ${var.cluster_name} \
+  --b64-cluster-ca ${aws_eks_cluster.main.certificate_authority[0].data} \
+  --apiserver-endpoint ${aws_eks_cluster.main.endpoint} \
+  --use-max-pods false \
+  --kubelet-extra-args '--max-pods=110'
+
+--==MYBOUNDARY==--
+  EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(
+      var.tags,
+      {
+        Name = "${var.cluster_name}-node"
+      }
+    )
+  }
+}
+
 # EKS Node Group
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.cluster_name}-node-group"
   node_role_arn   = var.eks_node_role_arn
   subnet_ids      = var.private_subnet_ids
+
+  launch_template {
+    id      = aws_launch_template.eks_nodes.id
+    version = aws_launch_template.eks_nodes.latest_version
+  }
 
   scaling_config {
     desired_size = var.desired_size
@@ -46,10 +92,10 @@ resource "aws_eks_node_group" "main" {
   }
 
   instance_types = [
-    "t3.large",
+    "t3.small",
+    "t3a.small"
   ]
 
-  ami_type      = "AL2_x86_64"
   capacity_type = "SPOT"
 
   update_config {
@@ -63,6 +109,11 @@ resource "aws_eks_node_group" "main" {
     },
     var.tags
   )
+
+  # Ignore changes to user data to avoid recreation when EKS dynamically updates the AMI string
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
 }
 
 # Security Group for Nodes
