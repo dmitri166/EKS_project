@@ -347,3 +347,7 @@ curl http://$ALB_URL/health
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+
+kubectl set env daemonset aws-node -n kube-system ENABLE_PREFIX_DELEGATION=true
+daemonset.apps/aws-node env updated

@@ -46,13 +46,12 @@ resource "aws_eks_node_group" "main" {
   }
 
   instance_types = [
-    "t3.small",
-    "t3a.small"
+    "t3.large",
   ]
 
-  ami_type = "AL2_x86_64"
+  ami_type      = "AL2_x86_64"
   capacity_type = "SPOT"
-  
+
   update_config {
     max_unavailable = 1
   }
@@ -74,8 +73,8 @@ resource "aws_security_group" "node_sg" {
 
   tags = merge(
     {
-      Name        = "${var.cluster_name}-node-sg"
-      Environment = var.environment
+      Name                     = "${var.cluster_name}-node-sg"
+      Environment              = var.environment
       "karpenter.sh/discovery" = var.cluster_name
     },
     var.tags
@@ -179,7 +178,7 @@ resource "aws_ecr_repository" "flask_app" {
     },
     var.tags
   )
-  
+
   # Prevent recreation if repository already exists
   lifecycle {
     prevent_destroy = false
