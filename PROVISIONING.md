@@ -61,8 +61,15 @@ ArgoCD will manage the deployment of all other components (ESO, ALB Controller, 
 ```bash
 # Deploy ArgoCD
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
+# Add Argo CD Helm repository
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+ 
+# Install Argo CD using Helm
+helm install argocd argo/argo-cd \
+  --namespace argocd \
+  --create-namespace \
+  --set crds.install=true
 # Wait for ArgoCD to be ready
 kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 

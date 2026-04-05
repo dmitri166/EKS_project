@@ -101,7 +101,7 @@ resource "aws_secretsmanager_secret_version" "redis_password" {
 resource "aws_db_instance" "main" {
   identifier           = "${var.project_name}-db"
   allocated_storage    = 20
-  storage_type         = "gp2"
+  storage_type         = "gp3"
   engine               = "postgres"
   engine_version       = "15"
   instance_class       = "db.t3.micro"
