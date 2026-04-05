@@ -56,38 +56,25 @@ aws eks update-kubeconfig --region us-east-1 --name flask-devops-cluster
 ```
 
 ### Step 4: Deploy Management Layer (ArgoCD & Apps)
-ArgoCD will manage the deployment of all other components (ESO, ALB Controller, Flask App, etc.).
+Use the automated deployment script for consistent, error-free setup:
 
 ```bash
-# Deploy ArgoCD
-kubectl create namespace argocd
-# Add Argo CD Helm repository
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
- 
-# Install Argo CD using Helm
-helm install argocd argo/argo-cd \
-  --namespace argocd \
-  --create-namespace \
-  --set crds.install=true
-# Wait for ArgoCD to be ready
-kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+# Run the automated deployment script
+./scripts/deploy-argocd.sh
 
-# Deploy gp3 StorageClass FIRST (before any PVCs are created)
-kubectl apply -f k8s/storage/gp3-sc.yaml
+# The script automatically handles:
+# ✅ ArgoCD installation via Helm
+# ✅ gp3 StorageClass deployment
+# ✅ gp2 StorageClass deletion
+# ✅ Karpenter deployment
+# ✅ All applications via ArgoCD
+# ✅ Health checks and validation
+```
 
-# DELETE gp2 StorageClass completely (so only gp3 exists)
-kubectl delete storageclass gp2
+### Step 5: Configure Free Domain and CDN
+Set up your production domain with Cloudflare:
 
-# Verify only gp3 exists and is default
-kubectl get storageclass
-
-# Now deploy all applications via ArgoCD (GitOps)
-kubectl apply -f argo-cd/apps/
-
-# Wait for Flask app to be deployed
-kubectl wait --for=condition=available --timeout=300s deployment/flask-app -n flask-app
-
+```bash
 # Set up free domain and CDN (Cloudflare + DuckDNS)
 echo "1. Sign up at cloudflare.com (free plan)"
 echo "2. Add domain: eks-cluster-lab.duckdns.org" 

@@ -251,28 +251,3 @@ resource "aws_iam_openid_connect_provider" "eks" {
     var.tags
   )
 }
-
-# Local exec to delete gp2 StorageClass after EKS cluster creation
-resource "null_resource" "delete_gp2_storageclass" {
-  depends_on = [aws_eks_cluster.main]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
-      kubectl delete storageclass gp2 --ignore-not-found=true || true
-    EOT
-  }
-}
-
-# Local exec to run deployment script after EKS cluster is ready
-resource "null_resource" "deploy_argocd" {
-  depends_on = [aws_eks_cluster.main, null_resource.delete_gp2_storageclass]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
-      cd ${path.module}/../../scripts
-      ./deploy-argocd.sh
-    EOT
-  }
-}
