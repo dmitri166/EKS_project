@@ -14,32 +14,6 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-      parameters:
-        - name: image.repository
-          value: "025988852505.dkr.ecr.us-east-1.amazonaws.com/flask-app"
-        - name: image.tag
-          value: "latest"
-        - name: replicaCount
-          value: "1"
-        - name: autoscaling.enabled
-          value: "true"
-        - name: autoscaling.minReplicas
-          value: "1"
-        - name: autoscaling.maxReplicas
-          value: "4"
-        - name: serviceMonitor.enabled
-          value: "true"
-        - name: persistence.enabled
-          value: "true"
-        - name: persistence.size
-          value: "512Mi"
-        - name: service.type
-          value: ClusterIP
-        # Security parameters - these will be set by external secrets or automation
-        - name: ingress.annotations."alb\.ingress\.kubernetes\.io/certificate-arn"
-          value: "PLACEHOLDER_CERT_ARN"
-        - name: ingress.annotations."alb\.ingress\.kubernetes\.io/security-groups"
-          value: "PLACEHOLDER_SG_ID"
   destination:
     server: https://kubernetes.default.svc
     namespace: flask-app
@@ -47,7 +21,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
-      allowEmpty: false
     syncOptions:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground

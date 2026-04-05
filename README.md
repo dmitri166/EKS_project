@@ -96,7 +96,17 @@ For a comprehensive, step-by-step guide on how to provision this project from ze
 - **Terraform**: v1.5 or higher
 - **AWS CLI**: Authenticated with appropriate IAM permissions
 - **kubectl**: For Kubernetes cluster interaction
-- **Helm**: For managing Kubernetes applications
+- **Helm**: For packaging applications (deployment via ArgoCD)
+
+### GitOps Architecture
+
+This project follows **GitOps best practices**:
+
+```bash
+Terraform → AWS Infrastructure (VPC, EKS, RDS, etc.)
+ArgoCD → Kubernetes Applications (automated from Git)
+Helm → Chart packaging (values in Git)
+```
 
 ### Quick Deployment
 
@@ -114,11 +124,17 @@ terraform apply -auto-approve
 # 3. Configure kubectl
 aws eks update-kubeconfig --region us-east-1 --name flask-devops-cluster
 
-# 4. Deploy ArgoCD and applications
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+# 4. Deploy gp3 StorageClass (before apps)
+kubectl apply -f k8s/storage/gp3-sc.yaml
+kubectl delete storageclass gp2
+
+# 5. Deploy all applications via ArgoCD (GitOps)
 kubectl apply -f argo-cd/apps/
+kubectl wait --for=condition=available --timeout=300s deployment/flask-app -n flask-app
+
+# 6. Set up free domain (Cloudflare + DuckDNS)
+ALB_DNS=$(kubectl get ingress -n flask-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+echo "Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS in Cloudflare"
 ```
 
 ## 🏗️ Infrastructure Components

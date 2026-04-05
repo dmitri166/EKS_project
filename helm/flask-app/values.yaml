@@ -1,6 +1,3 @@
-# Default values for flask-app.
-# This is a YAML-formatted file.
-
 replicaCount: 2
 
 image:
@@ -13,12 +10,8 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
   name: ""
 
 podAnnotations:
@@ -48,9 +41,7 @@ ingress:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: common
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80},{"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
-    # Certificate ARN and Security Groups will be set via ArgoCD parameters
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
     alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/0
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
@@ -58,14 +49,11 @@ ingress:
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
   hosts:
-    - host: flask-app.local
+    - host: eks-cluster-lab.duckdns.org
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - hosts:
-        - flask-app.local
-      secretName: flask-app-tls
+  tls: []
 
 resources:
   limits:
@@ -86,7 +74,6 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
-# Liveness and readiness probes
 livenessProbe:
   httpGet:
     path: /health
@@ -105,7 +92,6 @@ readinessProbe:
   timeoutSeconds: 3
   failureThreshold: 3
 
-# Environment variables
 env:
   - name: DATABASE_URL
     valueFrom:
@@ -117,16 +103,13 @@ env:
   - name: REDIS_PORT
     value: "6379"
 
-# Persistent volume for SQLite database (DISABLED for 3-tier)
 persistence:
   enabled: false
 
-# Configuration
 config:
   flaskDebug: "false"
   logLevel: "INFO"
 
-# Service Monitor for Prometheus
 serviceMonitor:
   enabled: true
   namespace: ""
@@ -134,19 +117,16 @@ serviceMonitor:
   interval: 30s
   scrapeTimeout: 10s
 
-# Pod Disruption Budget
 podDisruptionBudget:
   enabled: true
   minAvailable: 1
   maxUnavailable: ""
 
-# Network policies
 networkPolicy:
   enabled: true
   ingress: []
   egress: []
 
-# Argo Rollouts Configuration
 rollout:
   enabled: false
   replicas: 2
@@ -164,7 +144,6 @@ rollout:
           - success-rate
           - latency
         startingStep: 1
-  # Analysis settings
   analysis:
     prometheusAddress: http://monitoring-prometheus.monitoring.svc.cluster.local:9090
     successRate:

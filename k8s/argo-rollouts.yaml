@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/argoproj/argo-helm'
-    targetRevision: HEAD
+    targetRevision: master
     chart: argo-rollouts
     helm:
       releaseName: argo-rollouts

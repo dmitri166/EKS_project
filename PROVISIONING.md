@@ -73,8 +73,33 @@ helm install argocd argo/argo-cd \
 # Wait for ArgoCD to be ready
 kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 
-# Apply the Application Manifests
+# Deploy gp3 StorageClass FIRST (before any PVCs are created)
+kubectl apply -f k8s/storage/gp3-sc.yaml
+
+# DELETE gp2 StorageClass completely (so only gp3 exists)
+kubectl delete storageclass gp2
+
+# Verify only gp3 exists and is default
+kubectl get storageclass
+
+# Now deploy all applications via ArgoCD (GitOps)
 kubectl apply -f argo-cd/apps/
+
+# Wait for Flask app to be deployed
+kubectl wait --for=condition=available --timeout=300s deployment/flask-app -n flask-app
+
+# Set up free domain and CDN (Cloudflare + DuckDNS)
+echo "1. Sign up at cloudflare.com (free plan)"
+echo "2. Add domain: eks-cluster-lab.duckdns.org" 
+echo "3. Update DuckDNS nameservers to Cloudflare"
+
+# Get ALB DNS and create CNAME in Cloudflare
+ALB_DNS=$(kubectl get ingress -n flask-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+echo "4. Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS"
+echo "5. Enable SSL/TLS → Flexible in Cloudflare"
+
+# Test your production domain
+echo "6. Test: curl https://eks-cluster-lab.duckdns.org/health"
 ```
 
 ---

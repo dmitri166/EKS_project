@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/dmitri166/EKS_project.git
-    targetRevision: HEAD
+    targetRevision: master
     path: k8s/karpenter
   destination:
     server: https://kubernetes.default.svc
