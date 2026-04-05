@@ -1,0 +1,37 @@
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2
+  amiSelectorTerms:
+  - name: "amazon-eks-node-1.31-*"
+  - owner: "602401143452"  # Amazon EKS AMI owner
+  subnetSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: flask-devops-cluster
+  securityGroupSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: flask-devops-cluster
+  tags:
+    karpenter.sh/discovery: flask-devops-cluster
+    Environment: production
+    Project: flask-devops
+  blockDeviceMappings:
+  - deviceName: /dev/xvda
+    ebs:
+      volumeSize: 20Gi  # Minimum for EKS
+      volumeType: gp3
+      deleteOnTermination: true
+      throughput: 125   # gp3 baseline
+      iops: 3000        # gp3 baseline
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh flask-devops-cluster \
+      --use-max-pods false \
+      --kubelet-extra-args '--max-pods=58'
+  instanceStorePolicy: Disabled
+  scalingRequirements:
+    minCount: 0
+    maxCount: 3  # Conservative limit for free tier
+    targetCount: 1

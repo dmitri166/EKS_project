@@ -1,0 +1,46 @@
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    spec:
+      taints:
+      - key: karpenter.sh/controller
+        value: "true"
+        effect: NoSchedule
+      startupTaints:
+      - key: karpenter.sh/controller
+        value: "true"
+        effect: NoSchedule
+      requirements:
+      - key: kubernetes.io/arch
+        operator: In
+        values: ["amd64"]
+      - key: kubernetes.io/os
+        operator: In
+        values: ["linux"]
+      - key: karpenter.k8s.aws/instance-category
+        operator: In
+        values: ["t"]  # Only burstable instances (cheap)
+      - key: karpenter.k8s.aws/instance-generation
+        operator: In
+        values: ["3"]  # Only gen3 for better performance
+      - key: karpenter.k8s.aws/instance-family
+        operator: In
+        values: ["t3", "t3a"]  # Specific cheap families
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values: ["spot"]  # Only spot instances
+      nodeClassRef:
+        name: default
+      kubeletConfiguration:
+        maxPods: 58  # Default for t3.small
+  disruption:
+    consolidatePolicy: WhenUnderutilized
+    expireAfter: 720h # 30 days
+    budgets:
+    - nodes: 100%
+  limits:
+    cpu: 4    # Max 4 vCPUs (2 t3.small instances)
+    memory: 8Gi  # Max 8GB RAM (2 t3.small instances)
