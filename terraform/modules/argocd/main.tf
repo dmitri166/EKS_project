@@ -42,45 +42,20 @@ resource "helm_release" "argocd" {
   depends_on = [kubernetes_namespace_v1.argocd]
 }
 
-# Create ArgoCD application to manage itself
-resource "kubectl_manifest" "argocd_self_management" {
-  yaml_body = <<-EOF
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: argocd
-  namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  project: default
-  source:
-    repoURL: https://github.com/dmitri166/EKS_project.git
-    targetRevision: master
-    path: argo-cd/manifests
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: argocd
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-      - PrunePropagationPolicy=foreground
-      - PruneLast=true
-EOF
+# Deploy root application that manages all apps (including ArgoCD self-management)
+resource "kubectl_manifest" "argocd_root_app" {
+  yaml_body = file("${path.root}/../argo-cd/root-app.yaml")
 
   depends_on = [helm_release.argocd]
 }
 
-# Wait for ArgoCD to be ready
+# Wait for ArgoCD to be ready before deploying apps
 resource "null_resource" "wait_for_argocd" {
-  depends_on = [kubectl_manifest.argocd_self_management]
+  depends_on = [kubectl_manifest.argocd_root_app]
 
   provisioner "local-exec" {
     command = <<-EOT
-      aws eks update-kubeconfig --region us-east-1 --name flask-devops-cluster
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
       kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
     EOT
   }
