@@ -55,20 +55,18 @@ Connect to your new cluster:
 aws eks update-kubeconfig --region us-east-1 --name flask-devops-cluster
 ```
 
-### Step 4: Deploy Management Layer (ArgoCD & Apps)
-Use the automated deployment script for consistent, error-free setup:
+### Step 4: Verify ArgoCD Self-Management
+ArgoCD is now deployed via Terraform and manages itself automatically:
 
 ```bash
-# Run the automated deployment script
-./scripts/deploy-argocd.sh
+# Check ArgoCD is running
+kubectl get pods -n argocd
 
-# The script automatically handles:
-# ✅ ArgoCD installation via Helm
-# ✅ gp3 StorageClass deployment
-# ✅ gp2 StorageClass deletion
-# ✅ Karpenter deployment
-# ✅ All applications via ArgoCD
-# ✅ Health checks and validation
+# Verify ArgoCD is managing itself
+kubectl get applications -n argocd | grep argocd
+
+# Check all apps are being deployed
+kubectl get applications -n argocd
 ```
 
 ### Step 5: Configure Free Domain and CDN

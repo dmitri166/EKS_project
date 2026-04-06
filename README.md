@@ -116,7 +116,7 @@ cd terraform/bootstrap
 terraform init
 terraform apply -auto-approve
 
-# 2. Deploy core infrastructure
+# 2. Deploy core infrastructure (includes ArgoCD)
 cd ../environments/production
 terraform init
 terraform apply -auto-approve
@@ -124,8 +124,9 @@ terraform apply -auto-approve
 # 3. Configure kubectl
 aws eks update-kubeconfig --region us-east-1 --name flask-devops-cluster
 
-# 4. Deploy everything with automated script
-./scripts/deploy-argocd.sh
+# 4. Verify ArgoCD self-management
+kubectl get pods -n argocd
+kubectl get applications -n argocd
 
 # 5. Set up free domain (Cloudflare + DuckDNS)
 ALB_DNS=$(kubectl get ingress -n flask-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
@@ -141,6 +142,7 @@ echo "Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS in Cloudflare"
 | `vpc` | VPC with public/private subnets, NAT gateways, VPC endpoints |
 | `eks` | EKS cluster with managed node group and OIDC provider |
 | `iam` | IAM roles for EKS cluster and node groups |
+| `argocd` | ArgoCD GitOps deployment (self-managing) |
 | `rds` | PostgreSQL RDS instance with Secrets Manager integration |
 | `oidc` | OIDC provider for GitHub Actions |
 | `karpenter` | Karpenter autoscaler for efficient node provisioning |

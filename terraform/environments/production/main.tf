@@ -161,3 +161,13 @@ module "alb_controller" {
 
   depends_on = [module.eks]
 }
+
+# ArgoCD Module
+module "argocd" {
+  source = "../../modules/argocd"
+
+  aws_region   = var.aws_region
+  cluster_name = var.cluster_name
+
+  depends_on = [module.eks]
+}

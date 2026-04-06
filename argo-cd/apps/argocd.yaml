@@ -8,24 +8,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://argoproj.github.io/argo-helm
-    chart: argo-cd
-    targetRevision: "5.51.6"
-    helm:
-      releaseName: argocd
-      parameters:
-        - name: server.service.type
-          value: ClusterIP
-        - name: server.ingress.enabled
-          value: "true"
-        - name: server.ingress.annotations.alb\.ingress\.kubernetes\.io/group\.name
-          value: common
-        - name: server.ingress.annotations.alb\.ingress\.kubernetes\.io/scheme
-          value: internet-facing
-        - name: server.ingress.annotations.alb\.ingress\.kubernetes\.io/target-type
-          value: ip
-        - name: server.ingress.path
-          value: /argo
+    repoURL: https://github.com/dmitri166/EKS_project.git
+    targetRevision: master
+    path: argo-cd/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -33,13 +18,10 @@ spec:
     automated:
       prune: true
       selfHeal: true
-      allowEmpty: false
     syncOptions:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground
       - PruneLast=true
-      - RespectIgnoreDifferences=true
-      - ApplyOutOfSyncOnly=true
     retry:
       limit: 5
       backoff:
