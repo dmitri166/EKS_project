@@ -17,37 +17,29 @@ resource "kubernetes_namespace_v1" "argocd" {
   }
 }
 
-# Deploy ArgoCD via Helm (bootstrap only)
-resource "helm_release" "argocd" {
-  name       = "argocd"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argo-cd"
-  version    = "5.46.2"
-  namespace  = kubernetes_namespace_v1.argocd.metadata[0].name
 
-  set {
-    name  = "crds.install"
-    value = "true"
-  }
-
-  set {
-    name  = "server.insecure"
-    value = "true"
-  }
-
+# Bootstrap ArgoCD from repo manifests (CRDs + core components)
+resource "null_resource" "bootstrap_argocd" {
   depends_on = [kubernetes_namespace_v1.argocd]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
+      kubectl apply -n argocd -f ${path.module}/../../../argo-cd/manifests/install.yaml
+    EOT
+  }
 }
 
 # Deploy root application that manages all apps (including ArgoCD self-management)
 resource "kubernetes_manifest" "argocd_root_app" {
   manifest = yamldecode(file("${path.module}/../../../argo-cd/root-app.yaml"))
 
-  depends_on = [helm_release.argocd]
+  depends_on = [null_resource.wait_for_argocd]
 }
 
 # Wait for ArgoCD to be ready before deploying apps
 resource "null_resource" "wait_for_argocd" {
-  depends_on = [kubernetes_manifest.argocd_root_app]
+  depends_on = [null_resource.bootstrap_argocd]
 
   provisioner "local-exec" {
     command = <<-EOT
