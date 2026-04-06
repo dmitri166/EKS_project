@@ -4,10 +4,6 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.0"
     }
-    kubectl = {
-      source  = "alekc/kubectl"
-      version = "~> 2.0"
-    }
   }
 }
 
@@ -43,15 +39,15 @@ resource "helm_release" "argocd" {
 }
 
 # Deploy root application that manages all apps (including ArgoCD self-management)
-resource "kubectl_manifest" "argocd_root_app" {
-  yaml_body = file("${path.module}/../../../argo-cd/root-app.yaml")
+resource "kubernetes_manifest" "argocd_root_app" {
+  manifest = yamldecode(file("${path.module}/../../../argo-cd/root-app.yaml"))
 
   depends_on = [helm_release.argocd]
 }
 
 # Wait for ArgoCD to be ready before deploying apps
 resource "null_resource" "wait_for_argocd" {
-  depends_on = [kubectl_manifest.argocd_root_app]
+  depends_on = [kubernetes_manifest.argocd_root_app]
 
   provisioner "local-exec" {
     command = <<-EOT
