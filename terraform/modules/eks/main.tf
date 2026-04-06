@@ -42,6 +42,17 @@ resource "aws_launch_template" "eks_nodes" {
   name_prefix   = "${var.cluster_name}-node-template-"
   image_id      = data.aws_ssm_parameter.eks_ami_id.value
 
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size           = 20
+      volume_type           = "gp3"
+      delete_on_termination = true
+      throughput            = 125
+      iops                  = 3000
+    }
+  }
+
   user_data = base64encode(<<-EOF
 MIME-Version: 1.0
 Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="

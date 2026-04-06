@@ -36,6 +36,8 @@ ec2nodeclass:
         volumeSize: 20Gi
         volumeType: gp3
         deleteOnTermination: true
+        throughput: 125
+        iops: 3000
 
 # Resources
 resources:
