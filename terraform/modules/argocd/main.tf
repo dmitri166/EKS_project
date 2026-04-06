@@ -12,7 +12,7 @@ terraform {
 }
 
 # Create ArgoCD namespace
-resource "kubernetes_namespace" "argocd" {
+resource "kubernetes_namespace_v1" "argocd" {
   metadata {
     name = "argocd"
     labels = {
@@ -27,7 +27,7 @@ resource "helm_release" "argocd" {
   repository = "https://argoproj.github.io/argo-helm"
   chart      = "argo-cd"
   version    = "v2.8.3"
-  namespace  = kubernetes_namespace.argocd.metadata[0].name
+  namespace  = kubernetes_namespace_v1.argocd.metadata[0].name
 
   set {
     name  = "crds.install"
@@ -39,7 +39,7 @@ resource "helm_release" "argocd" {
     value = "true"
   }
 
-  depends_on = [kubernetes_namespace.argocd]
+  depends_on = [kubernetes_namespace_v1.argocd]
 }
 
 # Create ArgoCD application to manage itself
