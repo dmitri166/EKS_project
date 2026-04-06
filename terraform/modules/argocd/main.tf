@@ -44,7 +44,7 @@ resource "helm_release" "argocd" {
 
 # Deploy root application that manages all apps (including ArgoCD self-management)
 resource "kubectl_manifest" "argocd_root_app" {
-  yaml_body = file("${path.root}/../argo-cd/root-app.yaml")
+  yaml_body = file("${path.module}/../../argo-cd/root-app.yaml")
 
   depends_on = [helm_release.argocd]
 }
