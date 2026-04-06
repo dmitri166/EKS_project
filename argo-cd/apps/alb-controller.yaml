@@ -1,22 +1,18 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: aws-load-balancer-controller
+  name: alb-controller
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   source:
-    repoURL: https://aws.github.io/eks-charts
-    chart: aws-load-balancer-controller
-    targetRevision: 3.1.0
-    helm:
-      values: |
-        clusterName: flask-devops-cluster
-        serviceAccount:
-          create: true
-          name: aws-load-balancer-controller
-          annotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/flask-devops-alb-controller
+    repoURL: https://github.com/dmitri166/EKS_project.git
+    targetRevision: master
+    path: helm/alb-controller
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
