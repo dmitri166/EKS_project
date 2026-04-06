@@ -14,10 +14,14 @@ spec:
     helm:
       releaseName: monitoring
       parameters:
-        - name: grafana.adminPassword
-          value: "admin123"
         - name: grafana.service.type
           value: ClusterIP  # Changed from LoadBalancer to save costs
+        - name: grafana.admin.existingSecret
+          value: grafana-admin-credentials
+        - name: grafana.admin.userKey
+          value: admin-user
+        - name: grafana.admin.passwordKey
+          value: admin-password
         - name: prometheus.service.type
           value: ClusterIP  # Changed from LoadBalancer to save costs
         - name: alertmanager.service.type
@@ -57,17 +61,7 @@ spec:
         - name: alertmanager.enabled
           value: "false"
         - name: grafana.ingress.enabled
-          value: "true"
-        - name: grafana.ingress.ingressClassName
-          value: alb
-        - name: grafana.ingress.annotations.alb\.ingress\.kubernetes\.io/group\.name
-          value: common
-        - name: grafana.ingress.annotations.alb\.ingress\.kubernetes\.io/scheme
-          value: internet-facing
-        - name: grafana.ingress.annotations.alb\.ingress\.kubernetes\.io/target-type
-          value: ip
-        - name: grafana.ingress.path
-          value: /grafana
+          value: "false"
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

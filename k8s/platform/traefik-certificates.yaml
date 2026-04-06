@@ -1,0 +1,77 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-tls
+  namespace: traefik
+spec:
+  secretName: wildcard-tls
+  issuerRef:
+    name: letsencrypt-http01
+    kind: ClusterIssuer
+  dnsNames:
+    - '*.eks-cluster-lab.duckdns.org'
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: auth-tls
+  namespace: traefik
+spec:
+  secretName: auth-tls
+  issuerRef:
+    name: letsencrypt-http01
+    kind: ClusterIssuer
+  dnsNames:
+    - auth.eks-cluster-lab.duckdns.org
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: backstage-tls
+  namespace: traefik
+spec:
+  secretName: backstage-tls
+  issuerRef:
+    name: letsencrypt-http01
+    kind: ClusterIssuer
+  dnsNames:
+    - backstage.eks-cluster-lab.duckdns.org
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+  namespace: traefik
+spec:
+  secretName: grafana-tls
+  issuerRef:
+    name: letsencrypt-http01
+    kind: ClusterIssuer
+  dnsNames:
+    - grafana.eks-cluster-lab.duckdns.org
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-tls
+  namespace: traefik
+spec:
+  secretName: argocd-tls
+  issuerRef:
+    name: letsencrypt-http01
+    kind: ClusterIssuer
+  dnsNames:
+    - argocd.eks-cluster-lab.duckdns.org
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api-tls
+  namespace: flask-app
+spec:
+  secretName: api-tls
+  issuerRef:
+    name: letsencrypt-http01
+    kind: ClusterIssuer
+  dnsNames:
+    - api.eks-cluster-lab.duckdns.org

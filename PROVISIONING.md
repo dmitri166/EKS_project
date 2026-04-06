@@ -39,6 +39,9 @@ terraform init
 terraform apply -auto-approve
 ```
 
+TF_VAR_github_oauth_client_id="<CLIENT_ID>" \
+TF_VAR_github_oauth_client_secret="<CLIENT_SECRET>" \
+
 ### Step 2: Provision Core Infrastructure
 This deploys the VPC, EKS Cluster, IAM roles, RDS instance, and initial Secrets.
 
@@ -69,22 +72,19 @@ kubectl get applications -n argocd | grep argocd
 kubectl get applications -n argocd
 ```
 
-### Step 5: Configure Free Domain and CDN
-Set up your production domain with Cloudflare:
+### Step 5: Configure DuckDNS (HTTP-01)
+Point your DuckDNS records to the Traefik load balancer:
 
 ```bash
-# Set up free domain and CDN (Cloudflare + DuckDNS)
-echo "1. Sign up at cloudflare.com (free plan)"
-echo "2. Add domain: eks-cluster-lab.duckdns.org" 
-echo "3. Update DuckDNS nameservers to Cloudflare"
+# Get Traefik LB hostname
+LB_HOST=$(kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
-# Get ALB DNS and create CNAME in Cloudflare
-ALB_DNS=$(kubectl get ingress -n flask-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
-echo "4. Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS"
-echo "5. Enable SSL/TLS → Flexible in Cloudflare"
+# Resolve to an IP and set DuckDNS to that IP
+LB_IP=$(dig +short $LB_HOST | head -n1)
+echo "Set DuckDNS A records to: $LB_IP"
 
-# Test your production domain
-echo "6. Test: curl https://eks-cluster-lab.duckdns.org/health"
+# Test API once DNS propagates
+curl https://api.eks-cluster-lab.duckdns.org/health
 ```
 
 ---
@@ -99,17 +99,17 @@ echo "6. Test: curl https://eks-cluster-lab.duckdns.org/health"
 ### B. Kubernetes Components
 - **ESO (External Secrets)**:
   `kubectl get externalsecrets -A` (Status should be `SecretSynced`).
-- **ALB Controller**:
-  `kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller` (Should be `Running`).
+- **Traefik**:
+  `kubectl get pods -n traefik` (Should be `Running`).
+- **Gateway API**:
+  `kubectl get gateway -n traefik` and `kubectl get httproute -A` (Should be `Accepted`).
 - **App Health**:
   `kubectl get pods -n flask-app` (Should be `Running`).
 
 ### C. Application Functionality
-Once the ALB is provisioned (check `kubectl get ingress -n flask-app`), verify the health endpoint:
+Once the Traefik load balancer is provisioned, verify the health endpoint:
 ```bash
-# Get the ALB DNS name
-ALB_URL=$(kubectl get ingress -n flask-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
-curl http://$ALB_URL/health
+curl https://api.eks-cluster-lab.duckdns.org/health
 ```
 **Expected Response**:
 ```json
@@ -125,5 +125,37 @@ curl http://$ALB_URL/health
 
 ## 4. Troubleshooting
 - **Secrets not syncing?** Check ESO logs: `kubectl logs -n external-secrets -l app.kubernetes.io/name=external-secrets`.
-- **ALB not creating?** Check ALB Controller logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller`.
+- **Traefik LB not creating?** Check Traefik logs: `kubectl -n traefik logs -l app.kubernetes.io/name=traefik`.
 - **App Pods failing?** Check `kubectl describe pod -n flask-app <pod-name>` for events.
+
+## Argo CD Bootstrap (Two-Phase Apply)
+
+The Argo CD module now uses a toggle `enable_argocd` to avoid Kubernetes provider errors on the very first apply (when kubeconfig is not yet available).
+
+1. **Phase 1 – Infrastructure only**
+   - Run Terraform with `enable_argocd = false` (default). This creates the VPC/EKS and all AWS infrastructure.
+   - Update kubeconfig: `aws eks update-kubeconfig --region <region> --name <cluster>`
+
+2. **Phase 2 – Argo CD bootstrap**
+   - Set `enable_argocd = true` in `terraform/environments/production/variables.tf` or via `-var`.
+   - Re-apply: `terraform apply -auto-approve`
+
+This will apply `argo-cd/manifests/install.yaml`, wait for `argocd-server`, and then apply `argo-cd/root-app.yaml` to sync all apps.
+
+## GitHub OAuth (oauth2-proxy)
+
+Provide the GitHub OAuth credentials at apply time (do not commit them):
+
+```
+TF_VAR_github_oauth_client_id="<CLIENT_ID>" TF_VAR_github_oauth_client_secret="<CLIENT_SECRET>" terraform apply -auto-approve -var="enable_argocd=true"
+```
+
+## DNS + TLS (DuckDNS)
+
+This setup uses cert-manager with HTTP-01 for per-host certs. A wildcard cert resource is included, but **wildcards require DNS-01**, so it will remain pending until a DNS-01 provider is configured. Ensure the following DNS A records point to your Traefik load balancer:
+
+- `backstage.eks-cluster-lab.duckdns.org`
+- `grafana.eks-cluster-lab.duckdns.org`
+- `argocd.eks-cluster-lab.duckdns.org`
+- `auth.eks-cluster-lab.duckdns.org`
+- `api.eks-cluster-lab.duckdns.org`

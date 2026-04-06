@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  namespace: flask-app
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: success-rate
+      interval: 5m
+      count: 10
+      successCondition: result[0] >= 0.95
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://monitoring-prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(http_requests_total{service="{{args.service-name}}",code!~"5.."}[2m])) /
+            sum(rate(http_requests_total{service="{{args.service-name}}"}[2m]))
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: latency
+  namespace: flask-app
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: latency
+      interval: 5m
+      count: 10
+      successCondition: result[0] <= 0.5
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://monitoring-prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_seconds_bucket{service="{{args.service-name}}"}[2m])) by (le)
+            )

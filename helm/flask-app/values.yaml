@@ -36,26 +36,10 @@ service:
   targetPort: 5000
 
 ingress:
-  enabled: true
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/group.name: common
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-    alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/0
-    alb.ingress.kubernetes.io/healthcheck-path: /health
-    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
-    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
-    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
-    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
-  hosts:
-    - host: eks-cluster-lab.duckdns.org
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []
+  enabled: false
 
 resources:
+
   limits:
     cpu: 200m
     memory: 256Mi

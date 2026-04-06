@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oauth2-proxy
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://oauth2-proxy.github.io/manifests
+    chart: oauth2-proxy
+    targetRevision: 7.6.0
+    helm:
+      values: |
+        config:
+          existingSecret: oauth2-proxy-github
+        extraArgs:
+          provider: github
+          github-user: dmitri166
+          email-domain: "*"
+          cookie-domain: .eks-cluster-lab.duckdns.org
+          whitelist-domain: .eks-cluster-lab.duckdns.org
+          redirect-url: https://auth.eks-cluster-lab.duckdns.org/oauth2/callback
+          set-xauthrequest: "true"
+          pass-authorization-header: "true"
+          pass-access-token: "true"
+          cookie-secure: "true"
+          cookie-samesite: lax
+          scope: "read:user user:email"
+        ingress:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: auth
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

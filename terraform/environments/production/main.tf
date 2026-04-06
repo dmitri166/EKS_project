@@ -145,6 +145,88 @@ module "rds" {
   depends_on = [module.vpc, module.eks]
 }
 
+
+# Backstage RDS Module
+module "rds_backstage" {
+  source = "../../modules/rds"
+
+  project_name       = "${var.project_name}-backstage"
+  db_name            = "backstage"
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+  eks_node_sg_id     = module.eks.cluster_security_group_id
+  tags               = var.tags
+
+  depends_on = [module.vpc, module.eks]
+}
+
+# oauth2-proxy Secrets (stored in AWS Secrets Manager)
+resource "random_password" "oauth2_proxy_cookie_secret" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "oauth2_proxy_client_id" {
+  name        = "oauth2-proxy-github-client-id"
+  description = "GitHub OAuth Client ID for oauth2-proxy"
+  force_overwrite_replica_secret = true
+  recovery_window_in_days = 0
+  tags = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "oauth2_proxy_client_id" {
+  count         = var.github_oauth_client_id != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.oauth2_proxy_client_id.id
+  secret_string = var.github_oauth_client_id
+}
+
+resource "aws_secretsmanager_secret" "oauth2_proxy_client_secret" {
+  name        = "oauth2-proxy-github-client-secret"
+  description = "GitHub OAuth Client Secret for oauth2-proxy"
+  force_overwrite_replica_secret = true
+  recovery_window_in_days = 0
+  tags = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "oauth2_proxy_client_secret" {
+  count         = var.github_oauth_client_secret != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.oauth2_proxy_client_secret.id
+  secret_string = var.github_oauth_client_secret
+}
+
+resource "aws_secretsmanager_secret" "oauth2_proxy_cookie_secret" {
+  name        = "oauth2-proxy-cookie-secret"
+  description = "oauth2-proxy cookie secret (base64)"
+  force_overwrite_replica_secret = true
+  recovery_window_in_days = 0
+  tags = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "oauth2_proxy_cookie_secret" {
+  secret_id     = aws_secretsmanager_secret.oauth2_proxy_cookie_secret.id
+  secret_string = base64encode(random_password.oauth2_proxy_cookie_secret.result)
+}
+
+# Grafana admin password (Secrets Manager)
+resource "random_password" "grafana_admin_password" {
+  length  = 16
+  special = true
+}
+
+resource "aws_secretsmanager_secret" "grafana_admin_password" {
+  name        = "${var.project_name}-grafana-admin-password"
+  description = "Grafana admin password"
+  force_overwrite_replica_secret = true
+  recovery_window_in_days = 0
+  tags = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "grafana_admin_password" {
+  secret_id     = aws_secretsmanager_secret.grafana_admin_password.id
+  secret_string = random_password.grafana_admin_password.result
+}
+
+
 # ESO Module
 module "eso" {
   source = "../../modules/eso"
@@ -181,17 +263,6 @@ module "security_groups" {
 #   depends_on = [module.vpc]
 # }
 
-# ALB Controller Module
-module "alb_controller" {
-  source = "../../modules/alb-controller"
-
-  project_name      = var.project_name
-  oidc_provider_arn = module.eks.oidc_provider_arn
-  oidc_provider_url = module.eks.oidc_provider_url
-  tags              = var.tags
-
-  depends_on = [module.eks]
-}
 
 # ArgoCD Module
 module "argocd" {
@@ -199,6 +270,7 @@ module "argocd" {
 
   aws_region   = var.aws_region
   cluster_name = var.cluster_name
+  enable_argocd = var.enable_argocd
 
   depends_on = [module.eks]
 }

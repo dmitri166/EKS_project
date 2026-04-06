@@ -54,7 +54,6 @@ EKS_project/
 │       ├── rds/                  # RDS PostgreSQL
 │       ├── oidc/                 # OIDC for GitHub Actions
 │       ├── karpenter/            # Karpenter autoscaler
-│       ├── alb-controller/       # AWS Load Balancer Controller
 │       └── eso/                  # External Secrets Operator
 ├── argo-cd/                      # GitOps Application manifests
 │   ├── root-app.yaml             # App of Apps pattern
@@ -64,7 +63,8 @@ EKS_project/
 │       ├── monitoring.yaml
 │       ├── redis.yaml
 │       ├── external-secrets.yaml
-│       ├── alb-controller.yaml
+│       ├── gateway-api-crds.yaml
+│       ├── traefik.yaml
 │       ├── kyverno.yaml
 │       ├── falco.yaml
 │       ├── loki.yaml
@@ -72,11 +72,10 @@ EKS_project/
 │       ├── argo-rollouts.yaml
 │       └── eso-resources.yaml
 ├── k8s/                          # Supplementary K8s manifests
-│   ├── eso/                      # External Secrets configs
 │   ├── eso-resources/            # ESO resource definitions
 │   ├── kyverno-policies/         # Kyverno policy definitions
-│   ├── flask-app-canary.yaml     # Canary deployment example
-│   └── flask-app-canary-analysis.yaml
+│   ├── flask-app-rollouts/       # Argo Rollouts manifests (Traefik traffic routing)
+│   └── platform/                 # Gateway API, cert-manager, namespaces
 ├── monitoring/
 │   └── prometheus/               # Prometheus configuration
 │       ├── config.yaml
@@ -128,9 +127,10 @@ aws eks update-kubeconfig --region us-east-1 --name flask-devops-cluster
 kubectl get pods -n argocd
 kubectl get applications -n argocd
 
-# 5. Set up free domain (Cloudflare + DuckDNS)
-ALB_DNS=$(kubectl get ingress -n flask-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
-echo "Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS in Cloudflare"
+# 5. Set up DuckDNS (HTTP-01)
+LB_HOST=$(kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+LB_IP=$(dig +short $LB_HOST | head -n1)
+echo "Set DuckDNS A records to: $LB_IP"
 ```
 
 ## 🏗️ Infrastructure Components
@@ -144,9 +144,9 @@ echo "Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS in Cloudflare"
 | `iam` | IAM roles for EKS cluster and node groups |
 | `argocd` | ArgoCD GitOps deployment (self-managing) |
 | `rds` | PostgreSQL RDS instance with Secrets Manager integration |
+| `rds_backstage` | Separate PostgreSQL RDS for Backstage |
 | `oidc` | OIDC provider for GitHub Actions |
 | `karpenter` | Karpenter autoscaler for efficient node provisioning |
-| `alb-controller` | AWS Load Balancer Controller for ingress |
 | `eso` | External Secrets Operator for secrets management |
 
 ### **Kubernetes Components (via ArgoCD)**
@@ -158,7 +158,10 @@ echo "Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS in Cloudflare"
 | **Monitoring** | Prometheus & Grafana stack |
 | **Redis** | In-memory cache (Bitnami chart) |
 | **External Secrets** | Syncs AWS Secrets Manager to K8s secrets |
-| **ALB Controller** | Manages AWS Application Load Balancers |
+| **Traefik + Gateway API** | Edge routing + OAuth2 auth |
+| **oauth2-proxy** | GitHub SSO for all tools |
+| **cert-manager** | Let’s Encrypt TLS (HTTP-01) |
+| **Backstage** | Internal developer portal |
 | **Kyverno** | Kubernetes native policy management |
 | **Falco** | Runtime security monitoring |
 | **Loki** | Log aggregation system |
@@ -184,6 +187,9 @@ echo "Create CNAME: eks-cluster-lab.duckdns.org → $ALB_DNS in Cloudflare"
 - `flask_requests_total` - Total requests per endpoint (method, endpoint, status)
 - `flask_tasks_total` - Total number of tasks (created, updated, deleted)
 - `flask_request_duration_seconds` - Request latency histogram
+
+
+> Canary deployments are managed by Argo Rollouts via `k8s/flask-app-rollouts`.
 
 ### **Alerting Rules**
 
@@ -300,10 +306,10 @@ persistence:
    kubectl get externalsecrets -A
    ```
 
-3. **ALB not creating:**
+3. **Traefik LB not creating:**
    ```bash
-   kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
-   kubectl get ingress -n flask-app
+   kubectl -n traefik logs -l app.kubernetes.io/name=traefik
+   kubectl -n traefik get svc traefik
    ```
 
 4. **ArgoCD sync issues:**
@@ -328,14 +334,14 @@ kubectl get pods -A
 
 # Check application status
 kubectl get pods -n flask-app
-kubectl get ingress -n flask-app
+kubectl get httproute -A
+kubectl get gateway -n traefik
 
 # Check ArgoCD applications
 kubectl get applications -n argocd
 
 # Test application endpoint
-ALB_URL=$(kubectl get ingress -n flask-app -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
-curl http://$ALB_URL/health
+curl https://api.eks-cluster-lab.duckdns.org/health
 ```
 
 ## 📚 Additional Resources

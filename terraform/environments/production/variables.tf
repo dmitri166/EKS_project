@@ -138,3 +138,25 @@ variable "route53_zone_id" {
   type        = string
   default     = ""
 }
+
+
+variable "enable_argocd" {
+  description = "Whether to create Argo CD resources (set true after kubeconfig is available)"
+  type        = bool
+  default     = false
+}
+
+
+variable "github_oauth_client_id" {
+  description = "GitHub OAuth Client ID for oauth2-proxy (set once; optional thereafter)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "github_oauth_client_secret" {
+  description = "GitHub OAuth Client Secret for oauth2-proxy (set once; optional thereafter)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

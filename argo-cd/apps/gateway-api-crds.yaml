@@ -1,18 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: alb-controller
+  name: gateway-api-crds
   namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   project: default
   source:
-    repoURL: https://github.com/dmitri166/EKS_project.git
-    targetRevision: master
-    path: helm/alb-controller
+    repoURL: https://github.com/kubernetes-sigs/gateway-api.git
+    targetRevision: v1.1.0
+    path: config/crd/standard
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
@@ -20,3 +18,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

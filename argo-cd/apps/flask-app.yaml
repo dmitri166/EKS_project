@@ -12,11 +12,9 @@ spec:
   source:
     repoURL: https://github.com/dmitri166/EKS_project.git
     targetRevision: master
-    path: helm/flask-app
-    helm:
-      valueFiles:
-        - values.yaml
+    path: k8s/flask-app-rollouts
   destination:
+
     server: https://kubernetes.default.svc
     namespace: flask-app
   syncPolicy:
