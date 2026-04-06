@@ -228,6 +228,21 @@ resource "aws_secretsmanager_secret_version" "grafana_admin_password" {
 
 
 # ESO Module
+
+# Configure AWS VPC CNI for higher pod density on small nodes
+resource "null_resource" "configure_aws_cni" {
+  depends_on = [module.eks]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
+      kubectl wait --for=condition=Ready pod -l k8s-app=aws-node -n kube-system --timeout=300s
+      kubectl set env daemonset aws-node -n kube-system ENABLE_PREFIX_DELEGATION=true WARM_PREFIX_TARGET=1
+      kubectl rollout restart daemonset aws-node -n kube-system
+    EOT
+  }
+}
+
 module "eso" {
   source = "../../modules/eso"
 
@@ -260,5 +275,5 @@ module "argocd" {
   cluster_name = var.cluster_name
   enable_argocd = var.enable_argocd
 
-  depends_on = [module.eks]
+  depends_on = [module.eks, null_resource.configure_aws_cni]
 }
