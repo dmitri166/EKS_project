@@ -33,18 +33,23 @@ resource "null_resource" "bootstrap_argocd" {
 }
 
 # Deploy root application that manages all apps (including ArgoCD self-management)
-resource "kubernetes_manifest" "argocd_root_app" {
+resource "null_resource" "apply_root_app" {
   count = var.enable_argocd ? 1 : 0
-  manifest = yamldecode(file("${path.module}/../../../argo-cd/root-app.yaml"))
-
   depends_on = [null_resource.wait_for_argocd[0]]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
+      kubectl apply -n argocd -f ${path.module}/../../../argo-cd/root-app.yaml
+    EOT
+  }
 }
 
 
 # Clear root-app finalizer on destroy to avoid Terraform timeout
 resource "null_resource" "clear_root_app_finalizer" {
   count = var.enable_argocd ? 1 : 0
-  depends_on = [kubernetes_manifest.argocd_root_app[0]]
+  depends_on = [null_resource.apply_root_app[0]]
 
   triggers = {
     aws_region   = var.aws_region

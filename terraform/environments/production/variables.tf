@@ -121,12 +121,6 @@ variable "tags" {
   }
 }
 
-variable "alb_allowed_cidrs" {
-  description = "CIDR blocks that can access the ALB"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
 variable "domain_name" {
   description = "Domain name for SSL certificate"
   type        = string

@@ -46,17 +46,6 @@ output "ecr_repository_url" {
   value       = module.eks.ecr_repository_url
 }
 
-# Security Groups Outputs
-output "alb_security_group_id" {
-  description = "Security group ID for ALB"
-  value       = module.security_groups.alb_security_group_id
-}
-
-output "eks_nodes_security_group_id" {
-  description = "Security group ID for EKS nodes"
-  value       = module.security_groups.eks_nodes_security_group_id
-}
-
 # ACM Certificate Output
 # output "acm_certificate_arn" {
 #   description = "ACM certificate ARN"

@@ -130,17 +130,21 @@ curl https://api.eks-cluster-lab.duckdns.org/health
 
 ## Argo CD Bootstrap (Two-Phase Apply)
 
-The Argo CD module now uses a toggle `enable_argocd` to avoid Kubernetes provider errors on the very first apply (when kubeconfig is not yet available).
+The Argo CD module uses a toggle `enable_argocd` to avoid Kubernetes provider errors on the very first apply (when kubeconfig is not yet available).
 
 1. **Phase 1 – Infrastructure only**
    - Run Terraform with `enable_argocd = false` (default). This creates the VPC/EKS and all AWS infrastructure.
    - Update kubeconfig: `aws eks update-kubeconfig --region <region> --name <cluster>`
 
 2. **Phase 2 – Argo CD bootstrap**
-   - Set `enable_argocd = true` in `terraform/environments/production/variables.tf` or via `-var`.
-   - Re-apply: `terraform apply -auto-approve`
+   - Re-run Terraform from `terraform/environments/production` with `enable_argocd = true`.
+   - The module installs Argo CD CRDs/components first, waits for `argocd-server`, then applies the root app via `kubectl` (avoids CRD timing errors).
 
-This will apply `argo-cd/manifests/install.yaml`, wait for `argocd-server`, and then apply `argo-cd/root-app.yaml` to sync all apps.
+Example:
+```
+cd terraform/environments/production
+terraform apply -auto-approve -var="enable_argocd=true"
+```
 
 ## GitHub OAuth (oauth2-proxy)
 
