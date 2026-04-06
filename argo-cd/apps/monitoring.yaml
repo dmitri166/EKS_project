@@ -56,6 +56,8 @@ spec:
           value: 50m  # Reduced for cost savings
         - name: nodeExporter.resources.requests.memory
           value: 64Mi  # Reduced for cost savings
+        - name: prometheus-node-exporter.enabled
+          value: "false"
         - name: defaultRules.create
           value: "false"  # Disabled default rules to save resources
         - name: alertmanager.enabled
