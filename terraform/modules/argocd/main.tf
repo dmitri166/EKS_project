@@ -37,6 +37,20 @@ resource "kubernetes_manifest" "argocd_root_app" {
   depends_on = [null_resource.wait_for_argocd]
 }
 
+
+# Clear root-app finalizer on destroy to avoid Terraform timeout
+resource "null_resource" "clear_root_app_finalizer" {
+  depends_on = [kubernetes_manifest.argocd_root_app]
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
+      kubectl -n argocd patch application root-app --type=merge -p '{"metadata":{"finalizers":[]}}'
+    EOT
+  }
+}
+
 # Wait for ArgoCD to be ready before deploying apps
 resource "null_resource" "wait_for_argocd" {
   depends_on = [null_resource.bootstrap_argocd]
