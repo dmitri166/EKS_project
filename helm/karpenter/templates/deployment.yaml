@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "karpenter.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "karpenter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "karpenter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "karpenter.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ include "karpenter.serviceAccountName" . }}
+      containers:
+      - name: karpenter
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - --leader-elect
+        - --log-level=info
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        env:
+        {{- toYaml .Values.env | nindent 8 }}
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          {{- toYaml .Values.securityContext | nindent 10 }}
+      securityContext:
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - key: karpenter.sh/controller
+          operator: Exists
+          effect: NoSchedule
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}

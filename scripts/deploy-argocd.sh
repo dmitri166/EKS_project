@@ -66,15 +66,30 @@ kubectl get storageclass
 print_status "Deploying Karpenter..."
 kubectl apply -f argo-cd/apps/karpenter.yaml
 
-# Step 9: Wait for Karpenter
-print_status "Waiting for Karpenter to be ready..."
-kubectl wait --for=condition=available --timeout=300s deployment/karpenter -n karpenter
+# Step 9: Wait for Karpenter namespace to be created
+print_status "Waiting for Karpenter namespace to be created..."
+for i in {1..10}; do
+  if kubectl get namespace karpenter &>/dev/null; then
+    print_status "Karpenter namespace found!"
+    break
+  fi
+  if [ $i -eq 10 ]; then
+    print_warning "Karpenter namespace not found after 5 minutes, creating manually..."
+    kubectl create namespace karpenter
+  fi
+  print_status "Waiting for ArgoCD to create namespace... ($i/10)"
+  sleep 30
+done
 
-# Step 10: Deploy all applications
+# Step 10: Wait for Karpenter pods to be ready
+print_status "Waiting for Karpenter to be ready..."
+kubectl wait --for=condition=available --timeout=300s deployment/karpenter -n karpenter || print_warning "Karpenter deployment timeout"
+
+# Step 11: Deploy all applications
 print_status "Deploying all applications via ArgoCD..."
 kubectl apply -f argo-cd/apps/
 
-# Step 11: Wait for Flask app
+# Step 12: Wait for Flask app
 print_status "Waiting for Flask app to be ready..."
 kubectl wait --for=condition=available --timeout=300s deployment/flask-app -n flask-app
 

@@ -10,7 +10,13 @@ spec:
   source:
     repoURL: https://github.com/dmitri166/EKS_project.git
     targetRevision: master
-    path: k8s/karpenter
+    path: helm/karpenter
+    helm:
+      valueFiles:
+        - values.yaml
+      parameters:
+        - name: serviceAccount.annotations."eks\.amazonaws\.com/role-arn"
+          value: "arn:aws:iam::025988852505:role/flask-devops-karpenter-controller"
   destination:
     server: https://kubernetes.default.svc
     namespace: karpenter

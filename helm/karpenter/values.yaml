@@ -1,0 +1,70 @@
+# Karpenter Configuration
+replicaCount: 1
+
+image:
+  repository: public.ecr.aws/karpenter/controller
+  tag: "v0.34.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: karpenter
+  annotations:
+    "eks.amazonaws.com/role-arn": ""
+
+# NodePool Configuration
+nodepool:
+  name: default
+  limits:
+    cpu: 1000
+  disruption:
+    consolidation:
+      enabled: true
+    expireAfter: 720h
+
+# EC2NodeClass Configuration
+ec2nodeclass:
+  name: default
+  amiFamily: AL2
+  subnetSelector:
+    karpenter.sh/discovery: flask-devops-cluster
+  securityGroupSelector:
+    karpenter.sh/discovery: flask-devops-cluster
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 20Gi
+        volumeType: gp3
+        deleteOnTermination: true
+
+# Resources
+resources:
+  limits:
+    cpu: 1
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Environment variables
+env:
+  - name: AWS_REGION
+    value: "us-east-1"
+  - name: CLUSTER_NAME
+    value: "flask-devops-cluster"
+  - name: KARPENTER_SERVICE_ACCOUNT
+    value: "karpenter"
+
+# Tolerations and Affinity
+tolerations: []
+affinity: {}
+
+# Labels and Annotations
+labels: {}
+annotations: {}
+
+# Security Context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532

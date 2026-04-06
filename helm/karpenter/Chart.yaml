@@ -1,0 +1,12 @@
+apiVersion: v2
+name: karpenter
+description: Karpenter - Kubernetes-native autoscaling
+type: application
+version: 0.1.0
+appVersion: "v0.34.0"
+home: https://karpenter.sh
+sources:
+  - https://github.com/aws/karpenter
+maintainers:
+  - name: EKS Project
+    email: devops@example.com

@@ -1,0 +1,34 @@
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: {{ .Values.ec2nodeclass.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "karpenter.labels" . | nindent 4 }}
+spec:
+  amiFamily: {{ .Values.ec2nodeclass.amiFamily }}
+  amiSelectorTerms:
+  - name: "amazon-eks-node-1.31-*"
+  - owner: "602401143452"
+  subnetSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: {{ .Values.env[1].value }}
+  securityGroupSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: {{ .Values.env[1].value }}
+  tags:
+    karpenter.sh/discovery: {{ .Values.env[1].value }}
+    Environment: production
+    Project: flask-devops
+  blockDeviceMappings:
+  {{- toYaml .Values.ec2nodeclass.blockDeviceMappings | nindent 2 }}
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh {{ .Values.env[1].value }} \
+      --use-max-pods false \
+      --kubelet-extra-args '--max-pods=58'
+  instanceStorePolicy: Disabled
+  scalingRequirements:
+    minCount: 0
+    maxCount: 3
+    targetCount: 1
