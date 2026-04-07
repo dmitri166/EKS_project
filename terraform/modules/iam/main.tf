@@ -120,7 +120,7 @@ resource "aws_iam_policy" "eks_node_custom_policy" {
           "logs:DescribeLogStreams",
         ]
         Effect   = "Allow"
-        Resource = "*"
+        Resource = "arn:aws:logs:*:*:log-group:/aws/eks/${var.project_name}*"
       },
       {
         Action   = [

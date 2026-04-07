@@ -115,6 +115,7 @@ module "oidc" {
 
   project_name = var.project_name
   github_repo  = "dmitri166/EKS_project"
+  aws_region   = var.aws_region
   tags         = var.tags
 }
 

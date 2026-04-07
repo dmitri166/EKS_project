@@ -40,7 +40,7 @@ resource "aws_iam_role_policy" "eso" {
           "secretsmanager:ListSecretVersionIds"
         ]
         Effect   = "Allow"
-        Resource = "*" # Narrow down in real prod
+        Resource = "arn:aws:secretsmanager:*:*:secret:${var.project_name}-*"
       }
     ]
   })

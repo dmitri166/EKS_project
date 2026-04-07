@@ -13,6 +13,13 @@ spec:
       values: |
         config:
           existingSecret: oauth2-proxy-github
+        resources:
+          requests:
+            cpu: 20m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
         extraArgs:
           provider: github
           github-user: dmitri166

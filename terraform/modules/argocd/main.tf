@@ -16,6 +16,37 @@ resource "kubernetes_namespace_v1" "argocd" {
       name = "argocd"
     }
   }
+
+  depends_on = [null_resource.cleanup_stuck_namespace[0]]
+}
+
+# Clean up stuck argocd namespace from a previous failed destroy before creating it
+resource "null_resource" "cleanup_stuck_namespace" {
+  count = var.enable_argocd ? 1 : 0
+
+  triggers = {
+    aws_region   = var.aws_region
+    cluster_name = var.cluster_name
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
+
+      # If namespace is stuck in Terminating, force-finalize it
+      STATUS=$(kubectl get namespace argocd -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+      if [ "$STATUS" = "Terminating" ]; then
+        echo "Namespace argocd is stuck in Terminating - force cleaning..."
+        for app in $(kubectl get applications -n argocd -o name 2>/dev/null); do
+          kubectl patch $app -n argocd --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+        done
+        kubectl get namespace argocd -o json | \
+          python3 -c "import sys,json; ns=json.load(sys.stdin); ns['spec']['finalizers']=[]; print(json.dumps(ns))" | \
+          kubectl replace --raw "/api/v1/namespaces/argocd/finalize" -f - 2>/dev/null || true
+        sleep 5
+      fi
+    EOT
+  }
 }
 
 
@@ -60,7 +91,24 @@ resource "null_resource" "clear_root_app_finalizer" {
     when    = destroy
     command = <<-EOT
       aws eks update-kubeconfig --region ${self.triggers.aws_region} --name ${self.triggers.cluster_name}
-      kubectl -n argocd patch application root-app --type=merge -p '{"metadata":{"finalizers":[]}}'
+
+      # Remove finalizers from ALL ArgoCD applications
+      for app in $(kubectl get applications -n argocd -o name 2>/dev/null); do
+        kubectl patch $app -n argocd --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+      done
+
+      # Delete all ArgoCD applications
+      kubectl delete applications --all -n argocd --timeout=60s 2>/dev/null || true
+
+      # Remove finalizers from AppProjects
+      for proj in $(kubectl get appprojects -n argocd -o name 2>/dev/null); do
+        kubectl patch $proj -n argocd --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+      done
+
+      # Force-remove any stuck resources in the namespace
+      kubectl api-resources --verbs=list --namespaced -o name 2>/dev/null | \
+        xargs -I{} kubectl get {} -n argocd --ignore-not-found -o name 2>/dev/null | \
+        xargs -I{} kubectl patch {} -n argocd --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
     EOT
   }
 }
