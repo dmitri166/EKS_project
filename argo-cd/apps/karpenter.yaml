@@ -3,20 +3,30 @@ kind: Application
 metadata:
   name: karpenter
   namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   source:
-    repoURL: https://github.com/dmitri166/EKS_project.git
-    targetRevision: master
-    path: helm/karpenter
+    repoURL: oci://public.ecr.aws/karpenter
+    chart: karpenter
+    targetRevision: v0.34.0
     helm:
-      valueFiles:
-        - values.yaml
-      parameters:
-        - name: serviceAccount.annotations."eks\.amazonaws\.com/role-arn"
-          value: "arn:aws:iam::025988852505:role/flask-devops-karpenter-controller"
+      values: |
+        serviceAccount:
+          annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::025988852505:role/flask-devops-karpenter-controller
+        settings:
+          clusterName: flask-devops-cluster
+          interruptionQueue: flask-devops-cluster-karpenter
+        controller:
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: karpenter

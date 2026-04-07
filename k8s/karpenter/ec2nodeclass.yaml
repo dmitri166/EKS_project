@@ -1,0 +1,28 @@
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2
+  role: flask-devops-karpenter-node-role
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: flask-devops-cluster
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: flask-devops-cluster
+  tags:
+    karpenter.sh/discovery: flask-devops-cluster
+    Environment: dev
+    Project: flask-devops
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 20Gi
+        volumeType: gp3
+        deleteOnTermination: true
+        throughput: 125
+        iops: 3000
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh flask-devops-cluster --use-max-pods false --kubelet-extra-args '--max-pods=58'

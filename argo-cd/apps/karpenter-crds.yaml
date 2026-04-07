@@ -1,21 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argo-rollouts
+  name: karpenter-crds
+  namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
-  namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
-    repoURL: https://github.com/argoproj/argo-helm
-    targetRevision: argo-rollouts-2.35.1
-    chart: argo-rollouts
+    repoURL: oci://public.ecr.aws/karpenter
+    chart: karpenter-crd
+    targetRevision: v0.34.0
   destination:
     server: https://kubernetes.default.svc
-    namespace: argo-rollouts
+    namespace: karpenter
   syncPolicy:
     automated:
       prune: true
