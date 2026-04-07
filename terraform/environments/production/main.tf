@@ -140,7 +140,7 @@ module "rds" {
   project_name       = var.project_name
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
-  eks_node_sg_id     = module.eks.cluster_security_group_id # Using cluster SG for now, node SG is also a candidate
+  eks_node_sg_id     = module.eks.node_security_group_id
   tags               = var.tags
 
   depends_on = [module.vpc, module.eks]
@@ -155,7 +155,7 @@ module "rds_backstage" {
   db_name            = "backstage"
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
-  eks_node_sg_id     = module.eks.cluster_security_group_id
+  eks_node_sg_id     = module.eks.node_security_group_id
   tags               = var.tags
 
   depends_on = [module.vpc, module.eks]

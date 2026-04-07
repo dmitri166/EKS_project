@@ -23,6 +23,11 @@ output "cluster_security_group_id" {
   value       = aws_security_group.cluster_sg.id
 }
 
+output "node_security_group_id" {
+  description = "EKS node security group ID"
+  value       = aws_security_group.node_sg.id
+}
+
 output "node_group_name" {
   description = "EKS node group name"
   value       = aws_eks_node_group.main.node_group_name

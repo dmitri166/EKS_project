@@ -40,7 +40,10 @@ resource "aws_iam_role_policy" "eso" {
           "secretsmanager:ListSecretVersionIds"
         ]
         Effect   = "Allow"
-        Resource = "arn:aws:secretsmanager:*:*:secret:${var.project_name}-*"
+        Resource = [
+          "arn:aws:secretsmanager:*:*:secret:${var.project_name}-*",
+          "arn:aws:secretsmanager:*:*:secret:oauth2-proxy-*"
+        ]
       }
     ]
   })
