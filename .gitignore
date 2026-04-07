@@ -3,6 +3,7 @@
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
+terraform.tfvars
 
 # Terraform provider binaries
 .terraform/providers/

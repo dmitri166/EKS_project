@@ -144,6 +144,15 @@ resource "null_resource" "apply_root_app" {
     command = <<-EOT
       aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
       kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+
+      # Register Karpenter OCI registry so ArgoCD can pull the chart
+      argocd login --core
+      argocd repo add public.ecr.aws/karpenter \
+        --type helm \
+        --name karpenter-ecr \
+        --enable-oci \
+        --insecure-skip-server-verification 2>/dev/null || true
+
       kubectl apply -n argocd -f ${path.module}/../../../argo-cd/root-app.yaml
     EOT
   }
