@@ -26,7 +26,8 @@ spec:
             enabled: true
         ports:
           web:
-            redirectTo: websecure
+            redirectTo:
+              port: websecure
         service:
           type: LoadBalancer
           annotations:
