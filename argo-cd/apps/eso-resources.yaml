@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: eso-resources
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   project: default
   source:
